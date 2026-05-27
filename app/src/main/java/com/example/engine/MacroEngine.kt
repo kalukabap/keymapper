@@ -161,33 +161,33 @@ class MacroEngine(
                     if (seq.delayMs > 0) delay(seq.delayMs)
 
                     val action = when (seq.actionType) {
-                        ActionSequence.TYPE_TAP -> ActionScheduler.Action.Tap(
-                            x = seq.targetX ?: 0f,
-                            y = seq.targetY ?: 0f,
+                        ActionSequence.ACTION_TAP -> ActionScheduler.Action.Tap(
+                            x = seq.xPercent * 1080f,
+                            y = seq.yPercent * 2400f,
                             holdMs = seq.holdMs
                         )
-                        ActionSequence.TYPE_SWIPE -> {
-                            val endX = seq.endX ?: (seq.targetX ?: 0f) + 100f
-                            val endY = seq.endY ?: (seq.targetY ?: 0f)
+                        ActionSequence.ACTION_SWIPE -> {
+                            val endX = (seq.xPercent + seq.dxPercent) * 1080f
+                            val endY = seq.endY ?: (seq.yPercent * 2400f)
                             ActionScheduler.Action.Swipe(
-                                startX = seq.targetX ?: 0f,
-                                startY = seq.targetY ?: 0f,
+                                startX = seq.xPercent * 1080f,
+                                startY = seq.yPercent * 2400f,
                                 endX = endX, endY = endY,
                                 durationMs = seq.holdMs
                             )
                         }
-                        ActionSequence.TYPE_HOLD -> ActionScheduler.Action.Hold(
-                            x = seq.targetX ?: 0f,
-                            y = seq.targetY ?: 0f,
+                        ActionSequence.ACTION_HOLD -> ActionScheduler.Action.Hold(
+                            x = seq.xPercent * 1080f,
+                            y = seq.yPercent * 2400f,
                             durationMs = seq.holdMs
                         )
-                        ActionSequence.TYPE_RELEASE -> {
+                        ActionSequence.ACTION_DELAY -> {
                             // Release is handled by the previous hold
                             continue
                         }
                         else -> ActionScheduler.Action.Tap(
-                            x = seq.targetX ?: 0f,
-                            y = seq.targetY ?: 0f,
+                            x = seq.xPercent * 1080f,
+                            y = seq.yPercent * 2400f,
                             holdMs = seq.holdMs
                         )
                     }
