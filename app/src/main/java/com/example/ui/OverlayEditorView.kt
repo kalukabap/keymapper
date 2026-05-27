@@ -3,6 +3,7 @@ package com.example.ui
 import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.KeyMapping
 import com.example.data.KeyMapperRepository
+import com.example.service.KeymappingService
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -340,47 +342,51 @@ fun OverlayEditorView(
                     ) {
                         if (listenKeyMode) {
                             Text(
-                                text = "PRESS PHYSICAL KEY NOW...",
+                                text = "PRESS ANY KEY ON YOUR KEYBOARD...",
                                 color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.titleSmall
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                "Pressing Esc will clear, or press any other button to map.",
+                                "Press any physical key to bind it. Tap Cancel to abort.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
-                            // Quick mock physical binder input for preview or container limitations
-                            Row(
-                                modifier = Modifier.padding(top = 10.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf("W", "Shift", "C", "F", "Space", "R").forEach { name ->
-                                    Button(
-                                        onClick = {
-                                            val mockCode = when (name) {
-                                                "W" -> KeyEvent.KEYCODE_W
-                                                "Shift" -> KeyEvent.KEYCODE_SHIFT_LEFT
-                                                "C" -> KeyEvent.KEYCODE_C
-                                                "F" -> KeyEvent.KEYCODE_F
-                                                "Space" -> KeyEvent.KEYCODE_SPACE
-                                                "R" -> KeyEvent.KEYCODE_R
-                                                else -> KeyEvent.KEYCODE_UNKNOWN
-                                            }
-                                            scope.launch {
-                                                val updated = currentMapping.copy(
-                                                    keyName = name,
-                                                    keyCode = mockCode
-                                                )
-                                                repository.saveMapping(updated)
-                                                selectedMapping = updated
-                                                listenKeyMode = false
-                                                onMappingsUpdated()
-                                            }
-                                        }
-                                    ) { Text(name, fontSize = 11.sp) }
+                            // Register real key binding callback with the service
+                            DisposableEffect(currentMapping.id) {
+                                KeymappingService.keyBindingCallback = { keyCode, keyName ->
+                                    scope.launch {
+                                        val updated = currentMapping.copy(
+                                            keyName = keyName,
+                                            keyCode = keyCode
+                                        )
+                                        repository.saveMapping(updated)
+                                        selectedMapping = updated
+                                        listenKeyMode = false
+                                        KeymappingService.keyBindingCallback = null
+                                        onMappingsUpdated()
+                                    }
                                 }
+                                onDispose {
+                                    KeymappingService.keyBindingCallback = null
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Cancel button
+                            Button(
+                                onClick = {
+                                    listenKeyMode = false
+                                    KeymappingService.keyBindingCallback = null
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            ) {
+                                Text("Cancel", fontSize = 12.sp)
                             }
                         } else {
                             Text(

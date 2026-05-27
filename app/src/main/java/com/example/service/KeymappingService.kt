@@ -307,6 +307,8 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
     }
 
     private fun hideOverlayEditor() {
+        // Clear any active key binding callback
+        keyBindingCallback = null
         editorOverlayView?.let {
             try {
                 windowManager.removeView(it)
@@ -321,6 +323,18 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         try {
             val keyCode = event.keyCode
             val action = event.action
+
+            // KEY BINDING MODE: forward key to callback instead of mapping
+            if (keyBindingCallback != null && action == KeyEvent.ACTION_DOWN) {
+                val keyName = try {
+                    KeyEvent.keyCodeToString(keyCode).replace("KEYCODE_", "")
+                } catch (e: Exception) {
+                    "KEY_$keyCode"
+                }
+                Log.d(TAG, "Key binding mode: captured keyCode=$keyCode name=$keyName")
+                keyBindingCallback?.invoke(keyCode, keyName)
+                return true // consume the event
+            }
 
             // Check if cursor lock gesture was pressed (using Grave accent / Backtick / Ctrl)
             if (keyCode == KeyEvent.KEYCODE_GRAVE || keyCode == KeyEvent.KEYCODE_CTRL_LEFT) {
@@ -494,5 +508,11 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
 
         val isServiceRunning: Boolean
             get() = activeInstance != null
+
+        // Key binding mode - when set, intercepted keys are forwarded here instead of mapped
+        @Volatile
+        var keyBindingCallback: ((Int, String) -> Unit)? = null
+
+        fun getActiveInstance(): KeymappingService? = activeInstance
     }
 }
