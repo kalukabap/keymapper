@@ -11,19 +11,19 @@ class KeymapConfigActivity : BasePanelActivity() {
         addLabel(layout, "Profiles")
         addLabel(layout, "Select a profile to edit or create new.", 12f)
 
-        val newBtn = Button(this@KeymapConfigActivity).apply {
+        val newBtn = Button(this).apply {
             text = "New Profile"
             setOnClickListener { /* TODO */ }
         }
         layout.addView(newBtn)
 
-        val importBtn = Button(this@KeymapConfigActivity).apply {
+        val importBtn = Button(this).apply {
             text = "Import Profile"
             setOnClickListener { /* TODO */ }
         }
         layout.addView(importBtn)
 
-        val exportBtn = Button(this@KeymapConfigActivity).apply {
+        val exportBtn = Button(this).apply {
             text = "Export Profile"
             setOnClickListener { /* TODO */ }
         }
@@ -31,6 +31,6 @@ class KeymapConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show().show()
     }
 }

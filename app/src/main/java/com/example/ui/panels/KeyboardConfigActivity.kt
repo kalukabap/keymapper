@@ -11,7 +11,7 @@ class KeyboardConfigActivity : BasePanelActivity() {
         addLabel(layout, "Key Bindings")
         addLabel(layout, "Press a key to bind, then select action type.", 12f)
 
-        val bindBtn = Button(this@KeyboardConfigActivity).apply {
+        val bindBtn = Button(this).apply {
             text = "Capture Key Binding"
             setOnClickListener {
                 // TODO: open key capture dialog
@@ -21,11 +21,11 @@ class KeyboardConfigActivity : BasePanelActivity() {
 
         addSeparator(layout)
         addLabel(layout, "Options")
-        addToggle(this@KeyboardConfigActivity.layout as? LinearLayout ?: layout,
+        addToggle(this.layout as? LinearLayout ?: layout,
             "Repeat Suppression", true) {}
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Keyboard config saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Keyboard config saved", Toast.LENGTH_SHORT).show().show()
     }
 }

@@ -24,7 +24,7 @@ class SettingsActivity : BasePanelActivity() {
         val rates = listOf("Uncapped", "500 Hz", "250 Hz", "125 Hz")
         val rateGroup = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
         rates.forEachIndexed { i, rate ->
-            rateGroup.addView(RadioButton(this@SettingsActivity).apply {
+            rateGroup.addView(RadioButton(this).apply {
                 text = rate
                 setTextColor(0xFFCCCCCC.toInt())
                 isChecked = i == 0
@@ -38,6 +38,6 @@ class SettingsActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show().show()
     }
 }

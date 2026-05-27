@@ -20,7 +20,7 @@ class MacroConfigActivity : BasePanelActivity() {
         addLabel(layout, "Steps will be recorded from key presses.")
         addLabel(layout, "Press 'Record' to start, press keys, then 'Stop'.", 12f)
 
-        val recordBtn = Button(this@MacroConfigActivity).apply {
+        val recordBtn = Button(this).apply {
             text = "Start Recording"
             setOnClickListener {
                 // Toggle recording via MacroEngine
@@ -31,6 +31,6 @@ class MacroConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Macro saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Macro saved", Toast.LENGTH_SHORT).show().show()
     }
 }

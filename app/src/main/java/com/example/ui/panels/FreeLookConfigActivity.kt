@@ -20,7 +20,7 @@ class FreeLookConfigActivity : BasePanelActivity() {
 
         addSeparator(layout)
         addLabel(layout, "Hotkey: ${if (hotkey == 0) "Not Set" else hotkey}")
-        val bindBtn = Button(this@FreeLookConfigActivity).apply {
+        val bindBtn = Button(this).apply {
             text = "Bind Hotkey"
             setOnClickListener {
                 // TODO: open key capture dialog
@@ -30,6 +30,6 @@ class FreeLookConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Free Look config saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Free Look config saved", Toast.LENGTH_SHORT).show().show()
     }
 }

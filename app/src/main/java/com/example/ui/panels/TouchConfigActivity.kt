@@ -18,7 +18,7 @@ class TouchConfigActivity : BasePanelActivity() {
         val modes = listOf("TAP", "HOLD", "DOWN_UP", "LONG_PRESS")
         val modeGroup = RadioGroup(this).apply { orientation = RadioGroup.VERTICAL }
         modes.forEach { mode ->
-            modeGroup.addView(RadioButton(this@TouchConfigActivity).apply {
+            modeGroup.addView(RadioButton(this).apply {
                 text = mode
                 setTextColor(0xFFCCCCCC.toInt())
                 isChecked = mode == touchMode
@@ -44,6 +44,6 @@ class TouchConfigActivity : BasePanelActivity() {
 
     override fun onSave() {
         // Save to profile via repository
-        Toast.makeText(this, "Touch config saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Touch config saved", Toast.LENGTH_SHORT).show().show()
     }
 }

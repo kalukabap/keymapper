@@ -33,6 +33,6 @@ class SwipeConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Swipe config saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Swipe config saved", Toast.LENGTH_SHORT).show().show()
     }
 }
