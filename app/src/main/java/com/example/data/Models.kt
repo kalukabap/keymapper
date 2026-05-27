@@ -127,6 +127,13 @@ data class KeyMapping(
         const val TYPE_SWIPE = "SWIPE"
         const val TYPE_HOLD_DRAG = "HOLD_DRAG"
 
+        // Mouse button virtual keycodes (for mapping mouse buttons to actions)
+        const val MOUSE_LEFT = 10001
+        const val MOUSE_RIGHT = 10002
+        const val MOUSE_MIDDLE = 10003
+        const val MOUSE_SIDE_BACK = 10004
+        const val MOUSE_SIDE_FORWARD = 10005
+
         // Hold modes
         const val HOLD_MODE_TAP = "TAP"           // Fire on key down
         const val HOLD_MODE_HOLD = "HOLD"         // Active while key held, release on up

@@ -90,7 +90,7 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
 
         // Initialize the engine and gesture injector
         engine = RuntimeEngine(this)
-        gestureInjector = GestureInjector(resources)
+        gestureInjector = GestureInjector(resources, engine)
         engine.actionExecutor = gestureInjector
 
         _serviceState.value = true
@@ -187,6 +187,67 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         } catch (e: Throwable) {
             Log.e(TAG, "Error in onInterceptKeyEvent", e)
             return false
+        }
+    }
+
+    /**
+     * Called when a mouse motion event is received.
+     * NOTE: AccessibilityService does NOT receive MotionEvents directly.
+      * Mouse buttons come through onKeyEvent as key events.
+      * Mouse movement capture requires a transparent overlay (TODO).
+      * For now, this is used by the overlay-based mouse capture when in aim mode.
+      */
+     fun onMotionEvent(event: android.view.MotionEvent) {
+         try {
+             if (!InputNormalizer.isMouseEvent(event)) return
+
+            val dx = event.getAxisValue(android.view.MotionEvent.AXIS_RELATIVE_X)
+            val dy = event.getAxisValue(android.view.MotionEvent.AXIS_RELATIVE_Y)
+
+            if (dx != 0f || dy != 0f) {
+                engine.processMouseMove(dx, dy)
+            }
+
+            // Mouse buttons
+            val buttonState = event.buttonState
+            val changedButtons = buttonState xor lastButtonState
+            if (changedButtons != 0) {
+                for (button in listOf(
+                    android.view.MotionEvent.BUTTON_PRIMARY,
+                    android.view.MotionEvent.BUTTON_SECONDARY,
+                    android.view.MotionEvent.BUTTON_TERTIARY,
+                    android.view.MotionEvent.BUTTON_BACK,
+                    android.view.MotionEvent.BUTTON_FORWARD
+                )) {
+                    val mask = buttonMask(button)
+                    if (changedButtons and mask != 0) {
+                        val isDown = buttonState and mask != 0
+                        engine.processMouseButton(button, isDown)
+                    }
+                }
+                lastButtonState = buttonState
+            }
+
+            // Scroll
+            val scrollY = event.getAxisValue(android.view.MotionEvent.AXIS_SCROLL)
+            if (scrollY != 0f) {
+                engine.processScroll(0f, scrollY)
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error in onMotionEvent", e)
+        }
+    }
+
+    private var lastButtonState = 0
+
+    private fun buttonMask(button: Int): Int {
+        return when (button) {
+            android.view.MotionEvent.BUTTON_PRIMARY -> android.view.MotionEvent.BUTTON_PRIMARY
+            android.view.MotionEvent.BUTTON_SECONDARY -> android.view.MotionEvent.BUTTON_SECONDARY
+            android.view.MotionEvent.BUTTON_TERTIARY -> android.view.MotionEvent.BUTTON_TERTIARY
+            android.view.MotionEvent.BUTTON_BACK -> 8
+            android.view.MotionEvent.BUTTON_FORWARD -> 16
+            else -> 0
         }
     }
 

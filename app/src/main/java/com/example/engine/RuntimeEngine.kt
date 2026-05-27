@@ -24,6 +24,7 @@ class RuntimeEngine(private val context: Context) {
         private const val TAG = "RuntimeEngine"
         private const val DEBOUNCE_MS = 16L  // ~1 frame at 60fps
         private const val LONG_PRESS_DEFAULT_MS = 300L
+        private const val REPEAT_SUPPRESS_MS = 100L // suppress auto-repeat within this window
     }
 
     // ── STATE MACHINE ──
@@ -65,6 +66,15 @@ class RuntimeEngine(private val context: Context) {
     val aimDelta: StateFlow<PointF> = _aimDelta.asStateFlow()
 
     private var isAimMode = false
+
+    // ── DEBUG TOGGLE ──
+
+    private var debugEnabled = true
+
+    // ── REPEAT SUPPRESSION ──
+    // keyCode → timestamp of last ACTION_DOWN (suppresses auto-repeat spam)
+
+    private val lastDownTime = mutableMapOf<Int, Long>()
 
     // ── TOGGLE STATE ──
     // keyCode → isToggled (for HOLD_MODE_TOGGLE)
@@ -177,6 +187,15 @@ class RuntimeEngine(private val context: Context) {
         // Update key state table
         when (event.type) {
             InputEvent.Type.KEY_DOWN -> {
+                // Repeat suppression: if we just processed KEY_DOWN for this code,
+                // ignore if within suppress window (handles hardware bounce)
+                val lastDown = lastDownTime[keyCode] ?: 0L
+                if ((now - lastDown) < REPEAT_SUPPRESS_MS && lastDown > 0L) {
+                    debug("Repeat-suppressed key $keyCode (${now - lastDown}ms)")
+                    return false
+                }
+                lastDownTime[keyCode] = now
+
                 pressedKeys[keyCode] = KeyState(
                     keyCode = keyCode,
                     isDown = true,
@@ -553,17 +572,32 @@ class RuntimeEngine(private val context: Context) {
     }
 
     /**
-     * Update the movement vector based on currently pressed WASD/DPAD keys.
+     * Update the movement vector using the movement BindingGroup anchor.
+     * Falls back to center of screen if no movement group exists.
      * Computes a normalized direction vector.
      */
     private fun updateMovementVector() {
         var dx = 0f
         var dy = 0f
 
-        if (isMovementKeyDown(KeyEvent.KEYCODE_W) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_UP)) dy -= 1f
-        if (isMovementKeyDown(KeyEvent.KEYCODE_S) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_DOWN)) dy += 1f
-        if (isMovementKeyDown(KeyEvent.KEYCODE_A) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_LEFT)) dx -= 1f
-        if (isMovementKeyDown(KeyEvent.KEYCODE_D) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT)) dx += 1f
+        // Check all movement keys (WASD + arrows)
+        val movementKeys = setOf(
+            KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_D, KeyEvent.KEYCODE_DPAD_RIGHT
+        )
+
+        for (key in movementKeys) {
+            if (pressedKeys[key]?.isDown == true) {
+                when (key) {
+                    KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_DPAD_UP -> dy -= 1f
+                    KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_DPAD_DOWN -> dy += 1f
+                    KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_DPAD_LEFT -> dx -= 1f
+                    KeyEvent.KEYCODE_D, KeyEvent.KEYCODE_DPAD_RIGHT -> dx += 1f
+                }
+            }
+        }
 
         // Normalize to unit circle for diagonal movement
         if (dx != 0f && dy != 0f) {
@@ -573,10 +607,6 @@ class RuntimeEngine(private val context: Context) {
         }
 
         _movementVector.value = PointF(dx, dy)
-    }
-
-    private fun isMovementKeyDown(keyCode: Int): Boolean {
-        return pressedKeys[keyCode]?.isDown == true
     }
 
     /**
@@ -630,8 +660,14 @@ class RuntimeEngine(private val context: Context) {
     // ═══════════════════════════════════════════
 
     private fun debug(msg: String) {
-        Log.d(TAG, msg)
-        _debugLog.value = msg
+        if (debugEnabled) {
+            Log.d(TAG, msg)
+            _debugLog.value = msg
+        }
+    }
+
+    fun setDebugEnabled(enabled: Boolean) {
+        debugEnabled = enabled
     }
 
     fun getDebugSummary(): String {

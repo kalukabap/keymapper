@@ -19,7 +19,8 @@ import kotlinx.coroutines.*
  * The engine never directly calls gesture APIs.
  */
 class GestureInjector(
-    private val resources: Resources
+    private val resources: Resources,
+    private val engine: RuntimeEngine? = null
 ) : ActionExecutor {
 
     companion object {
@@ -112,8 +113,21 @@ class GestureInjector(
     override fun onMovementAction(mapping: KeyMapping, direction: PointF) {
         if (direction.x == 0f && direction.y == 0f) return
 
-        val centerX = percentToPx(mapping.xPercent, screenW)
-        val centerY = percentToPy(mapping.yPercent, screenH)
+        // Use the movement group anchor if available, otherwise mapping position
+        val movementGroup = engine?.getGroupsSnapshot()?.firstOrNull {
+            it.groupType == com.example.data.BindingGroup.GROUP_TYPE_MOVEMENT
+        }
+
+        val centerX = if (movementGroup != null) {
+            percentToPx(movementGroup.anchorXPercent, screenW)
+        } else {
+            percentToPx(mapping.xPercent, screenW)
+        }
+        val centerY = if (movementGroup != null) {
+            percentToPy(movementGroup.anchorYPercent, screenH)
+        } else {
+            percentToPy(mapping.yPercent, screenH)
+        }
         val distance = 80f * mapping.sensitivity
         val targetX = centerX + direction.x * distance
         val targetY = centerY + direction.y * distance

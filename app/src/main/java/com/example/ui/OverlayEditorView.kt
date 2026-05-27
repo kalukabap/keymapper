@@ -247,11 +247,7 @@ fun OverlayEditorView(
                                 modifier = Modifier.padding(horizontal = 4.dp)
                             ) {
                                 Text(
-                                    text = if (mapping.keyCode != KeyEvent.KEYCODE_UNKNOWN) {
-                                        (KeyEvent.keyCodeToString(mapping.keyCode) ?: "KEY_${mapping.keyCode}").replace("KEYCODE_", "")
-                                    } else {
-                                        mapping.mappingType ?: "TAP"
-                                    },
+                                    text = buildNodeSublabel(mapping),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontSize = 8.sp,
                                     color = Color.White,
@@ -314,7 +310,7 @@ fun OverlayEditorView(
                                 .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            listOf(KeyMapping.TYPE_TAP, KeyMapping.TYPE_DPAD, KeyMapping.TYPE_MOUSE_LOOK, KeyMapping.TYPE_MACRO).forEach { type ->
+                            listOf(KeyMapping.TYPE_TAP, KeyMapping.TYPE_SWIPE, KeyMapping.TYPE_DPAD, KeyMapping.TYPE_HOLD_DRAG, KeyMapping.TYPE_MOUSE_LOOK, KeyMapping.TYPE_MACRO).forEach { type ->
                                 FilterChip(
                                     selected = currentMapping.mappingType == type,
                                     onClick = {
@@ -326,6 +322,44 @@ fun OverlayEditorView(
                                         }
                                     },
                                     label = { Text(type, fontSize = 10.sp) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Hold Mode selector
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Hold Mode:",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                KeyMapping.HOLD_MODE_TAP to "Tap",
+                                KeyMapping.HOLD_MODE_HOLD to "Hold",
+                                KeyMapping.HOLD_MODE_TOGGLE to "Toggle",
+                                KeyMapping.HOLD_MODE_LONG_PRESS to "Long Press"
+                            ).forEach { (mode, label) ->
+                                FilterChip(
+                                    selected = currentMapping.holdMode == mode,
+                                    onClick = {
+                                        scope.launch {
+                                            val updated = currentMapping.copy(holdMode = mode)
+                                            repository.saveMapping(updated)
+                                            selectedMapping = updated
+                                            onMappingsUpdated()
+                                        }
+                                    },
+                                    label = { Text(label, fontSize = 10.sp) }
                                 )
                             }
                         }
@@ -437,5 +471,20 @@ fun OverlayEditorView(
             }
         }
     }
+}
+
+private fun buildNodeSublabel(mapping: KeyMapping): String {
+    val holdSymbol = when (mapping.holdMode) {
+        KeyMapping.HOLD_MODE_HOLD -> " [HOLD]"
+        KeyMapping.HOLD_MODE_TOGGLE -> " [TGL]"
+        KeyMapping.HOLD_MODE_LONG_PRESS -> " [LP]"
+        else -> ""
+    }
+    val keyPart = if (mapping.keyCode != KeyEvent.KEYCODE_UNKNOWN) {
+        (KeyEvent.keyCodeToString(mapping.keyCode) ?: "KEY_${mapping.keyCode}").replace("KEYCODE_", "")
+    } else {
+        mapping.mappingType
+    }
+    return keyPart + holdSymbol
 }
 
