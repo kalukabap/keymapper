@@ -3,6 +3,7 @@ package com.example.engine
 import android.content.Context
 import android.graphics.PointF
 import android.util.Log
+import android.view.KeyEvent
 import com.example.data.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -559,10 +560,10 @@ class RuntimeEngine(private val context: Context) {
         var dx = 0f
         var dy = 0f
 
-        if (isKeyDown(KeyEvent.KEYCODE_W) || isKeyDown(KeyEvent.KEYCODE_DPAD_UP)) dy -= 1f
-        if (isKeyDown(KeyEvent.KEYCODE_S) || isKeyDown(KeyEvent.KEYCODE_DPAD_DOWN)) dy += 1f
-        if (isKeyDown(KeyEvent.KEYCODE_A) || isKeyDown(KeyEvent.KEYCODE_DPAD_LEFT)) dx -= 1f
-        if (isKeyDown(KeyEvent.KEYCODE_D) || isKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT)) dx += 1f
+        if (isMovementKeyDown(KeyEvent.KEYCODE_W) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_UP)) dy -= 1f
+        if (isMovementKeyDown(KeyEvent.KEYCODE_S) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_DOWN)) dy += 1f
+        if (isMovementKeyDown(KeyEvent.KEYCODE_A) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_LEFT)) dx -= 1f
+        if (isMovementKeyDown(KeyEvent.KEYCODE_D) || isMovementKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT)) dx += 1f
 
         // Normalize to unit circle for diagonal movement
         if (dx != 0f && dy != 0f) {
@@ -574,7 +575,7 @@ class RuntimeEngine(private val context: Context) {
         _movementVector.value = PointF(dx, dy)
     }
 
-    private fun isKeyDown(keyCode: Int): Boolean {
+    private fun isMovementKeyDown(keyCode: Int): Boolean {
         return pressedKeys[keyCode]?.isDown == true
     }
 
