@@ -6,6 +6,7 @@ import android.app.Service
 import android.graphics.Path
 import android.os.Build
 import android.util.Log
+import com.example.shizuku.ShizukuHiddenApi
 
 /**
  * Persistent touch session manager.
