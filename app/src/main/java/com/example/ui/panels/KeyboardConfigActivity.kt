@@ -5,7 +5,7 @@ import com.example.engine.*
 
 class KeyboardConfigActivity : BasePanelActivity() {
 
-    override fun getTitle() = "Keyboard Binding"
+    override fun getPanelTitle() = "Keyboard Binding"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Key Bindings")
@@ -21,7 +21,7 @@ class KeyboardConfigActivity : BasePanelActivity() {
 
         addSeparator(layout)
         addLabel(layout, "Options")
-        addToggle(this.layout as? LinearLayout ?: layout,
+        addToggle(layout,
             "Repeat Suppression", true) {}
     }
 

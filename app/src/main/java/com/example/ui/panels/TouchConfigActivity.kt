@@ -11,7 +11,7 @@ class TouchConfigActivity : BasePanelActivity() {
     private var targetX = 540f
     private var targetY = 960f
 
-    override fun getTitle() = "Touch Configuration"
+    override fun getPanelTitle() = "Touch Configuration"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Touch Mode")

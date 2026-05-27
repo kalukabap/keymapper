@@ -12,7 +12,7 @@ class SwipeConfigActivity : BasePanelActivity() {
     private var duration = 300L
     private var repeatMode = false
 
-    override fun getTitle() = "Swipe Configuration"
+    override fun getPanelTitle() = "Swipe Configuration"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Start Point")

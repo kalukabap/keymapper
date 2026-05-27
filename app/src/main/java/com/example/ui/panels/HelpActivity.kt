@@ -5,7 +5,7 @@ import com.example.engine.*
 
 class HelpActivity : BasePanelActivity() {
 
-    override fun getTitle() = "Help & Tutorial"
+    override fun getPanelTitle() = "Help & Tutorial"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Getting Started")

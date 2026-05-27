@@ -11,7 +11,7 @@ class FpsViewConfigActivity : BasePanelActivity() {
     private var holdMode = true
     private var invertY = false
 
-    override fun getTitle() = "FPS View Configuration"
+    override fun getPanelTitle() = "FPS View Configuration"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Sensitivity")

@@ -9,7 +9,7 @@ class FreeLookConfigActivity : BasePanelActivity() {
     private var resetOnEdge = true
     private var hotkey = 0
 
-    override fun getTitle() = "Free Look Configuration"
+    override fun getPanelTitle() = "Free Look Configuration"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Sensitivity")

@@ -5,10 +5,10 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import com.example.engine.RuntimeEngine
-import com.example.engine.RuntimeEngine.EngineState
 
 /**
  * Base class for all feature configuration panels.
@@ -16,9 +16,7 @@ import com.example.engine.RuntimeEngine.EngineState
  */
 abstract class BasePanelActivity : Activity() {
 
-    protected lateinit var engine: RuntimeEngine
-
-    abstract fun getTitle(): String
+    abstract fun getPanelTitle(): String
     abstract fun buildPanel(layout: LinearLayout)
     abstract fun onSave()
 
@@ -30,8 +28,6 @@ abstract class BasePanelActivity : Activity() {
             ViewGroup.LayoutParams.WRAP_CONTENT
         )
         window.setBackgroundDrawableResource(android.R.color.transparent)
-
-        engine = RuntimeEngine.getInstance(this)
 
         val scroll = ScrollView(this).apply {
             setBackgroundColor(0xE61A1A2E.toInt())
@@ -48,22 +44,12 @@ abstract class BasePanelActivity : Activity() {
 
         // Title
         root.addView(TextView(this).apply {
-            text = getTitle()
+            text = getPanelTitle()
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 18f
             typeface = Typeface.DEFAULT_BOLD
             setPadding(0, 0, 0, 16)
         })
-
-        // Runtime status
-        if (engine.currentState != EngineState.IDLE && engine.currentState != EngineState.PERMISSION_MISSING) {
-            root.addView(TextView(this).apply {
-                text = "● Runtime: ${engine.currentState.name}"
-                setTextColor(if (engine.currentState == EngineState.READY || engine.currentState == EngineState.AIM_MODE) 0xFF00E676.toInt() else 0xFFFFAB00.toInt())
-                textSize = 12f
-                setPadding(0, 0, 0, 12)
-            })
-        }
 
         // Build feature-specific controls
         buildPanel(root)
@@ -113,12 +99,13 @@ abstract class BasePanelActivity : Activity() {
         current: Float,
         onChange: (Float) -> Unit
     ) {
-        parent.addView(TextView(this).apply {
-            this.text = "$label: %.1f".format(current)
+        val tv = TextView(this).apply {
+            text = "$label: %.1f".format(current)
             setTextColor(0xFFBBBBBB.toInt())
             textSize = 12f
             setPadding(0, 6, 0, 2)
-        })
+        }
+        parent.addView(tv)
         parent.addView(SeekBar(this).apply {
             this.max = 1000
             progress = ((current - min) / (max - min) * 1000).toInt().coerceIn(0, 1000)
@@ -127,8 +114,7 @@ abstract class BasePanelActivity : Activity() {
                     if (fromUser) {
                         val value = min + (prog / 1000f) * (max - min)
                         onChange(value)
-                        (parent.getChildAt(parent.indexOfChild(sb) - 1) as? TextView)?.text =
-                            "$label: %.1f".format(value)
+                        tv.text = "$label: %.1f".format(value)
                     }
                 }
                 override fun onStartTrackingTouch(sb: SeekBar) {}

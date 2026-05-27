@@ -13,7 +13,7 @@ class JoystickConfigActivity : BasePanelActivity() {
     private var invertX = false
     private var invertY = false
 
-    override fun getTitle() = "Joystick Configuration"
+    override fun getPanelTitle() = "Joystick Configuration"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Position")

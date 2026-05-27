@@ -5,7 +5,7 @@ import com.example.engine.*
 
 class KeymapConfigActivity : BasePanelActivity() {
 
-    override fun getTitle() = "Profile Manager"
+    override fun getPanelTitle() = "Profile Manager"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Profiles")

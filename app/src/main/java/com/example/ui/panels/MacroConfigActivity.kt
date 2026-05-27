@@ -8,7 +8,7 @@ class MacroConfigActivity : BasePanelActivity() {
     private var loopCount = 0
     private var stopKeyCode = -1
 
-    override fun getTitle() = "Macro Editor"
+    override fun getPanelTitle() = "Macro Editor"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Macro Settings")

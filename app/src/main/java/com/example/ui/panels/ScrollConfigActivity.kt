@@ -9,7 +9,7 @@ class ScrollConfigActivity : BasePanelActivity() {
     private var repeatRate = 50L
     private var smoothScroll = false
 
-    override fun getTitle() = "Scroll Configuration"
+    override fun getPanelTitle() = "Scroll Configuration"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Scroll Settings")

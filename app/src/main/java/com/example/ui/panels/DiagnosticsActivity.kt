@@ -5,7 +5,7 @@ import com.example.engine.*
 
 class DiagnosticsActivity : BasePanelActivity() {
 
-    override fun getTitle() = "Diagnostics"
+    override fun getPanelTitle() = "Diagnostics"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Runtime Status")

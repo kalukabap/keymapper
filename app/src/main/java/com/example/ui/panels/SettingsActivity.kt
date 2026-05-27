@@ -11,7 +11,7 @@ class SettingsActivity : BasePanelActivity() {
     private var pollingRate = 0
     private var debugLogging = false
 
-    override fun getTitle() = "Settings"
+    override fun getPanelTitle() = "Settings"
 
     override fun buildPanel(layout: LinearLayout) {
         addLabel(layout, "Display")
