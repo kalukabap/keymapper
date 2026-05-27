@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="280dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@drawable/palette_background"
+    android:elevation="12dp">
+
+    <!-- Title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tools"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Row 1: Touch, Swipe, Scroll -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <LinearLayout
+            android:id="@+id/btn_touch"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="👆" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Touch" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_swipe"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="👉" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Swipe" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_scroll"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="🔄" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Scroll" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 2: Macro, Joystick, FPS View -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <LinearLayout
+            android:id="@+id/btn_macro"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="⚡" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Macro" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_joystick"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="🕹️" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Joystick" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_fps_view"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="🎯" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="FPS View" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 3: Free Look, Keyboard, Keymap -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <LinearLayout
+            android:id="@+id/btn_free_look"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="👁️" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Free Look" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_keyboard"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="⌨️" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Keyboard" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_keymap"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="🗺️" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Keymap" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Row 4: Settings, Diagnostics, Help -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <LinearLayout
+            android:id="@+id/btn_settings"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="⚙️" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Settings" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_diagnostics"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="📊" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Diag" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btn_help"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="❓" android:textSize="24sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Help" android:textColor="#CCCCCC" android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

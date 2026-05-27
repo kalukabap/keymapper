@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
@@ -23,6 +24,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+
+        <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -30,11 +33,11 @@
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Accessibility Service (fallback) -->
         <service
             android:name=".service.AccessibilityTouchService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
@@ -47,6 +50,7 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <!-- Keymapping Service (runtime engine) -->
         <service
             android:name=".service.KeymappingService"
             android:enabled="true"
@@ -56,6 +60,68 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keymapper service for mapping physical peripheral keys to coordinate inputs" />
         </service>
+
+        <!-- Floating HUD Service -->
+        <service
+            android:name=".ui.FloatingHudService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Floating HUD overlay for input mapping controls" />
+        </service>
+
+        <!-- Feature Config Panels (floating dialog style) -->
+        <activity
+            android:name=".ui.panels.TouchConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.SwipeConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.ScrollConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.MacroConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.JoystickConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.FpsViewConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.FreeLookConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.KeyboardConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.KeymapConfigActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.SettingsActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.DiagnosticsActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+        <activity
+            android:name=".ui.panels.HelpActivity"
+            android:theme="@style/Theme.Panel"
+            android:exported="false" />
+
     </application>
 
 </manifest>
