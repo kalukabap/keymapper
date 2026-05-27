@@ -32,6 +32,6 @@ class JoystickConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Joystick config saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "Joystick config saved", Toast.LENGTH_SHORT).show()
     }
 }

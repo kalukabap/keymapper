@@ -26,6 +26,6 @@ class KeyboardConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Keyboard config saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "Keyboard config saved", Toast.LENGTH_SHORT).show()
     }
 }

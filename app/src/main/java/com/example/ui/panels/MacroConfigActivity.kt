@@ -31,6 +31,6 @@ class MacroConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Macro saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "Macro saved", Toast.LENGTH_SHORT).show()
     }
 }

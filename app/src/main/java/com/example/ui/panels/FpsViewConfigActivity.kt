@@ -26,6 +26,6 @@ class FpsViewConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "FPS View config saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "FPS View config saved", Toast.LENGTH_SHORT).show()
     }
 }

@@ -30,6 +30,6 @@ class FreeLookConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Free Look config saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "Free Look config saved", Toast.LENGTH_SHORT).show()
     }
 }

@@ -44,6 +44,6 @@ class TouchConfigActivity : BasePanelActivity() {
 
     override fun onSave() {
         // Save to profile via repository
-        Toast.makeText(this, "Touch config saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "Touch config saved", Toast.LENGTH_SHORT).show()
     }
 }

@@ -38,6 +38,6 @@ class SettingsActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show()
     }
 }

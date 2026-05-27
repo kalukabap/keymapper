@@ -31,6 +31,6 @@ class KeymapConfigActivity : BasePanelActivity() {
     }
 
     override fun onSave() {
-        Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show().show()
+        Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show()
     }
 }
