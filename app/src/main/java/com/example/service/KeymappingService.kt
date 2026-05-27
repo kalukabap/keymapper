@@ -17,15 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationCompat
-import com.example.MainActivity
-import com.example.data.KeyMapping
-import com.example.data.KeyMapperRepository
-import com.example.data.MacroAction
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.Types
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -37,8 +28,15 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.MainActivity
+import com.example.data.KeyMapping
+import com.example.data.KeyMapperRepository
+import com.example.engine.*
+import kotlinx.coroutines.*
 
 class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner, AccessibilityTouchService.KeyEventOverrideListener {
+
+    // ── LIFECYCLE BOILERPLATE ──
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val store = ViewModelStore()
@@ -48,38 +46,39 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
     override val viewModelStore: ViewModelStore get() = store
     override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
 
+    // ── CORE COMPONENTS ──
+
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private lateinit var repository: KeyMapperRepository
     private lateinit var windowManager: WindowManager
 
-    // Overlay components
+    /** THE ENGINE — the brain of the mapper */
+    private lateinit var engine: RuntimeEngine
+
+    /** Gesture injector — bridges engine actions to accessibility service */
+    private lateinit var gestureInjector: GestureInjector
+
+    // ── OVERLAY ──
+
     private var floatTriggerView: View? = null
     private var editorOverlayView: View? = null
 
-    // State
+    // ── STATE ──
+
     private var activeProfileId = -1
-    private val mappingsList = mutableListOf<KeyMapping>()
-    private val keyStateMap = mutableMapOf<Int, Boolean>()
 
-    // Joystick keys state for WASD bundling
-    private var isWPressed = false
-    private var isAPressed = false
-    private var isSPressed = false
-    private var isDPressed = false
-
-    private val moshi = Moshi.Builder().build()
-    private val macroListAdapter = moshi.adapter<List<MacroAction>>(
-        Types.newParameterizedType(List::class.java, MacroAction::class.java)
-    )
+    // ═══════════════════════════════════════════
+    //  SERVICE LIFECYCLE
+    // ═══════════════════════════════════════════
 
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "KeymappingService onCreate")
-        
+
         try {
             savedStateRegistryController.performRestore(null)
         } catch (e: Throwable) {
-            Log.e(TAG, "Failed to performSavedStateRegistry restore", e)
+            Log.e(TAG, "Failed to restore state", e)
         }
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
@@ -87,25 +86,29 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         repository = KeyMapperRepository(this)
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
+        // Initialize the engine and gesture injector
+        engine = RuntimeEngine(this)
+        gestureInjector = GestureInjector(resources)
+        engine.actionExecutor = gestureInjector
+
         _serviceState.value = true
         activeInstance = this
 
-        // Register keys interceptor
+        // Register as key event interceptor
         AccessibilityTouchService.keyEventOverrideListener = this
 
         createNotificationChannel()
         try {
-            if (Build.VERSION.SDK_INT >= 34) { // Android 14+
+            if (Build.VERSION.SDK_INT >= 34) {
                 val fgsType = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 startForeground(NOTIFICATION_ID, createNotification(), fgsType)
             } else {
                 startForeground(NOTIFICATION_ID, createNotification())
             }
         } catch (e: Throwable) {
-            Log.e(TAG, "Failed to start service in foreground", e)
+            Log.e(TAG, "Failed to start foreground", e)
         }
 
-        // Show floating menu controller
         showFloatingControl()
     }
 
@@ -113,59 +116,95 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         val profileId = intent?.getIntExtra(EXTRA_PROFILE_ID, -1) ?: -1
         if (profileId != -1) {
             activeProfileId = profileId
-            loadProfileMappings(profileId)
+            loadProfileIntoEngine(profileId)
         }
         return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun loadProfileMappings(profileId: Int) {
+    // ═══════════════════════════════════════════
+    //  PROFILE LOADING — atomic snapshot into engine
+    // ═══════════════════════════════════════════
+
+    private fun loadProfileIntoEngine(profileId: Int) {
         serviceScope.launch {
-            val list = repository.getMappingsList(profileId)
-            synchronized(mappingsList) {
-                mappingsList.clear()
-                mappingsList.addAll(list)
+            try {
+                val profile = repository.getProfile(profileId) ?: return@launch
+                val mappings = repository.getMappingsList(profileId)
+                val groups = repository.getGroupsList(profileId)
+
+                // Load action sequences for all mappings
+                val sequences = mutableMapOf<Int, List<com.example.data.ActionSequence>>()
+                for (mapping in mappings) {
+                    if (mapping.mappingType == KeyMapping.TYPE_MACRO) {
+                        sequences[mapping.id] = repository.getSequenceForMapping(mapping.id)
+                    }
+                }
+
+                // Atomic load into engine
+                engine.loadProfile(profile, mappings, groups, sequences)
+                Log.d(TAG, "Profile loaded into engine: ${profile.name} (${mappings.size} mappings)")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load profile into engine", e)
             }
-            Log.d(TAG, "Loaded ${list.size} mappings for profile $profileId")
         }
     }
 
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Keymapping Active Service",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Shows that the KeyMapper inputs are capturing inputs."
+    // ═══════════════════════════════════════════
+    //  KEY EVENT INTERCEPTION — the hot path
+    // ═══════════════════════════════════════════
+
+    /**
+     * Called by AccessibilityTouchService when a hardware key is pressed.
+     * This is the HOT PATH — must be fast.
+     */
+    override fun onInterceptKeyEvent(event: KeyEvent): Boolean {
+        try {
+            // KEY BINDING MODE: forward key to editor callback instead of engine
+            if (keyBindingCallback != null && event.action == KeyEvent.ACTION_DOWN) {
+                val keyName = InputNormalizer.keyName(event.keyCode)
+                Log.d(TAG, "Key binding mode: captured keyCode=${event.keyCode} name=$keyName")
+                keyBindingCallback?.invoke(event.keyCode, keyName)
+                return true
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+
+            // Swallow cursor lock key (grave/ctrl) — reserved for aim toggle
+            if (event.keyCode == KeyEvent.KEYCODE_GRAVE || event.keyCode == KeyEvent.KEYCODE_CTRL_LEFT) {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    engine.toggleAimMode()
+                }
+                return true
+            }
+
+            // Normalize the raw event
+            val normalized = InputNormalizer.normalize(event) ?: return false
+
+            // Feed to engine — it decides if the event is consumed
+            return engine.processKey(normalized)
+        } catch (e: Throwable) {
+            Log.e(TAG, "Error in onInterceptKeyEvent", e)
+            return false
         }
     }
 
-    private fun createNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+    // ═══════════════════════════════════════════
+    //  OVERLAY MANAGEMENT
+    // ═══════════════════════════════════════════
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("KeyMapper Service Running")
-            .setContentText("Mapper handles background hardware configuration.")
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+    private fun toggleOverlayEditor() {
+        if (editorOverlayView != null) {
+            hideOverlayEditor()
+        } else {
+            showOverlayEditor()
+        }
     }
 
     private fun showFloatingControl() {
         if (floatTriggerView != null) return
 
         if (!android.provider.Settings.canDrawOverlays(this)) {
-            Log.w(TAG, "Cannot show floating control: draw overlays permission not granted")
+            Log.w(TAG, "No overlay permission")
             return
         }
 
@@ -176,6 +215,7 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else
+                    @Suppress("DEPRECATION")
                     WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
@@ -210,7 +250,7 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
             }
             frame.addView(composeView)
 
-            // Make floating trigger draggable
+            // Draggable
             frame.setOnTouchListener(object : View.OnTouchListener {
                 private var initialX = 0
                 private var initialY = 0
@@ -232,15 +272,13 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
                             try {
                                 windowManager.updateViewLayout(frame, layoutParams)
                             } catch (e: Exception) {
-                                Log.e(TAG, "Error updating floating view layout", e)
+                                Log.e(TAG, "Error updating layout", e)
                             }
                             return true
                         }
                         MotionEvent.ACTION_UP -> {
                             val moved = Math.abs(event.rawX - initialTouchX) > 10 || Math.abs(event.rawY - initialTouchY) > 10
-                            if (!moved) {
-                                toggleOverlayEditor()
-                            }
+                            if (!moved) toggleOverlayEditor()
                             return true
                         }
                     }
@@ -255,29 +293,25 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         }
     }
 
-    private fun toggleOverlayEditor() {
-        if (editorOverlayView != null) {
-            hideOverlayEditor()
-        } else {
-            showOverlayEditor()
-        }
-    }
-
     private fun showOverlayEditor() {
         if (editorOverlayView != null) return
 
         if (!android.provider.Settings.canDrawOverlays(this)) {
-            Log.w(TAG, "Cannot show overlay editor: draw overlays permission not granted")
+            Log.w(TAG, "No overlay permission")
             return
         }
 
         try {
+            // Lock input while editor is open
+            engine.lockInput()
+
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else
+                    @Suppress("DEPRECATION")
                     WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
@@ -293,7 +327,7 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
                     com.example.ui.OverlayEditorView(
                         profileId = activeProfileId,
                         onDismiss = { hideOverlayEditor() },
-                        onMappingsUpdated = { loadProfileMappings(activeProfileId) }
+                        onMappingsUpdated = { loadProfileIntoEngine(activeProfileId) }
                     )
                 }
             }
@@ -307,192 +341,88 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
     }
 
     private fun hideOverlayEditor() {
-        // Clear any active key binding callback
         keyBindingCallback = null
         editorOverlayView?.let {
             try {
                 windowManager.removeView(it)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to remove overlay editor view", e)
+                Log.e(TAG, "Failed to remove editor", e)
             }
             editorOverlayView = null
         }
+        // Unlock input when editor closes
+        engine.unlockInput()
     }
 
-    override fun onInterceptKeyEvent(event: KeyEvent): Boolean {
-        try {
-            val keyCode = event.keyCode
-            val action = event.action
+    // ═══════════════════════════════════════════
+    //  NOTIFICATION
+    // ═══════════════════════════════════════════
 
-            // KEY BINDING MODE: forward key to callback instead of mapping
-            if (keyBindingCallback != null && action == KeyEvent.ACTION_DOWN) {
-                val keyName = try {
-                    KeyEvent.keyCodeToString(keyCode).replace("KEYCODE_", "")
-                } catch (e: Exception) {
-                    "KEY_$keyCode"
-                }
-                Log.d(TAG, "Key binding mode: captured keyCode=$keyCode name=$keyName")
-                keyBindingCallback?.invoke(keyCode, keyName)
-                return true // consume the event
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Keymapping Active Service",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows that the KeyMapper inputs are capturing inputs."
             }
-
-            // Check if cursor lock gesture was pressed (using Grave accent / Backtick / Ctrl)
-            if (keyCode == KeyEvent.KEYCODE_GRAVE || keyCode == KeyEvent.KEYCODE_CTRL_LEFT) {
-                return true
-            }
-
-            val matchingMappings = synchronized(mappingsList) {
-                mappingsList.filter { it.keyCode == keyCode }
-            }
-            if (matchingMappings.isEmpty()) {
-                return false
-            }
-
-            val isDown = action == KeyEvent.ACTION_DOWN
-            keyStateMap[keyCode] = isDown
-
-            val metrics = resources.displayMetrics
-            val screenW = metrics.widthPixels.toFloat()
-            val screenH = metrics.heightPixels.toFloat()
-
-            for (mapping in matchingMappings) {
-                val px = (mapping.xPercent / 100f) * screenW
-                val py = (mapping.yPercent / 100f) * screenH
-
-                when (mapping.mappingType) {
-                    KeyMapping.TYPE_TAP -> {
-                        if (isDown) {
-                            AccessibilityTouchService.performTap(px, py)
-                        }
-                    }
-                    KeyMapping.TYPE_DPAD -> {
-                        when (keyCode) {
-                            KeyEvent.KEYCODE_W -> isWPressed = isDown
-                            KeyEvent.KEYCODE_A -> isAPressed = isDown
-                            KeyEvent.KEYCODE_S -> isSPressed = isDown
-                            KeyEvent.KEYCODE_D -> isDPressed = isDown
-                        }
-                        handleDpadBundling(screenW, screenH)
-                    }
-                    KeyMapping.TYPE_MOUSE_LOOK -> {
-                        // Mouse look: drag from center based on key held state
-                        // Sensitivity scales the drag distance
-                        val centerX = (mapping.xPercent / 100f) * screenW
-                        val centerY = (mapping.yPercent / 100f) * screenH
-                        val lookDistance = 50f * mapping.sensitivity
-                        if (isDown) {
-                            // Perform a short swipe from center to simulate look drag
-                            AccessibilityTouchService.performSwipe(
-                                centerX, centerY,
-                                centerX + lookDistance, centerY,
-                                50
-                            )
-                        }
-                    }
-                    KeyMapping.TYPE_MACRO -> {
-                        if (isDown) {
-                            executeMacro(mapping.macroActionsJson, screenW, screenH)
-                        }
-                    }
-                }
-            }
-
-            return true
-        } catch (e: Throwable) {
-            Log.e(TAG, "Error in onInterceptKeyEvent callback", e)
-            return false
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
         }
     }
 
-    private fun handleDpadBundling(screenW: Float, screenH: Float) {
-        val dpadMapping = mappingsList.firstOrNull { it.mappingType == KeyMapping.TYPE_DPAD } ?: return
-        val centerX = (dpadMapping.xPercent / 100f) * screenW
-        val centerY = (dpadMapping.yPercent / 100f) * screenH
-
-        val distance = 80f
-        var dx = 0f
-        var dy = 0f
-
-        if (isWPressed) dy -= 1f
-        if (isSPressed) dy += 1f
-        if (isAPressed) dx -= 1f
-        if (isDPressed) dx += 1f
-
-        if (dx == 0f && dy == 0f) {
-            return
-        }
-
-        val length = Math.sqrt((dx * dx + dy * dy).toDouble()).toFloat()
-        val targetX = centerX + (dx / length) * distance
-        val targetY = centerY + (dy / length) * distance
-
-        AccessibilityTouchService.performSwipe(centerX, centerY, targetX, targetY, 40)
+    private fun createNotification(): Notification {
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("KeyMapper Service Running")
+            .setContentText("Mapper handles background hardware configuration.")
+            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setContentIntent(pendingIntent)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
     }
 
-    private fun executeMacro(macroJson: String, screenW: Float, screenH: Float) {
-        serviceScope.launch {
-            try {
-                val actions = withContext(Dispatchers.Default) {
-                    macroListAdapter.fromJson(macroJson)
-                } ?: emptyList()
-
-                for (action in actions) {
-                    when (action.actionType) {
-                        MacroAction.ACTION_TAP -> {
-                            val px = (action.xPercent / 100f) * screenW
-                            val py = (action.yPercent / 100f) * screenH
-                            AccessibilityTouchService.performTap(px, py)
-                        }
-                        MacroAction.ACTION_DELAY -> {
-                            delay(action.delayMs)
-                        }
-                        MacroAction.ACTION_SWIPE -> {
-                            val px1 = (action.xPercent / 100f) * screenW
-                            val py1 = (action.yPercent / 100f) * screenH
-                            val px2 = ((action.xPercent + action.dxPercent) / 100f) * screenW
-                            val py2 = ((action.yPercent + action.dyPercent) / 100f) * screenH
-                            AccessibilityTouchService.performSwipe(px1, py1, px2, py2, 300)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to run macro", e)
-            }
-        }
-    }
+    // ═══════════════════════════════════════════
+    //  DESTROY
+    // ═══════════════════════════════════════════
 
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "KeymappingService onDestroy")
+
         _serviceState.value = false
         activeInstance = null
         AccessibilityTouchService.keyEventOverrideListener = null
+
+        engine.unload()
+        gestureInjector.destroy()
         serviceScope.cancel()
 
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
         try {
             store.clear()
         } catch (e: Throwable) {
-            Log.e(TAG, "Error clearing store on destroy", e)
+            Log.e(TAG, "Error clearing store", e)
         }
 
         floatTriggerView?.let {
-            try {
-                windowManager.removeView(it)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to remove float trigger view on destroy", e)
-            }
+            try { windowManager.removeView(it) } catch (e: Exception) { Log.e(TAG, "Error removing float", e) }
             floatTriggerView = null
         }
         editorOverlayView?.let {
-            try {
-                windowManager.removeView(it)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to remove editor overlay view on destroy", e)
-            }
+            try { windowManager.removeView(it) } catch (e: Exception) { Log.e(TAG, "Error removing editor", e) }
             editorOverlayView = null
         }
     }
+
+    // ═══════════════════════════════════════════
+    //  COMPANION
+    // ═══════════════════════════════════════════
 
     companion object {
         const val TAG = "KeyMapperService"
@@ -503,13 +433,12 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         @Volatile
         private var activeInstance: KeymappingService? = null
 
-        private val _serviceState = MutableStateFlow(false)
+        private val _serviceState = kotlinx.coroutines.flow.MutableStateFlow(false)
         val serviceState = _serviceState.asStateFlow()
 
         val isServiceRunning: Boolean
             get() = activeInstance != null
 
-        // Key binding mode - when set, intercepted keys are forwarded here instead of mapped
         @Volatile
         var keyBindingCallback: ((Int, String) -> Unit)? = null
 
