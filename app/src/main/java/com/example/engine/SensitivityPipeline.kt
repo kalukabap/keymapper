@@ -3,7 +3,8 @@ package com.example.engine
 import android.content.Context
 import android.util.DisplayMetrics
 import android.view.WindowManager
-import kotlin.math.*
+import kotlin.math.abs
+import kotlin.math.pow
 
 /**
  * Mouse sensitivity pipeline.

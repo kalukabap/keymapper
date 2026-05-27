@@ -132,7 +132,7 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
                 rawInput.enumerateDevices()
                 rawInput.startCapture()
 
-                val persistentInj = PersistentInjector(this)
+                val persistentInj = PersistentInjector(null) // Shizuku mode, no AccessibilityService needed
 
                 engine.enableShizukuMode(rawInput, persistentInj)
 

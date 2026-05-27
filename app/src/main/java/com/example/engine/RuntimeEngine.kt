@@ -97,6 +97,8 @@ class RuntimeEngine(private val context: Context) {
 
     var actionExecutor: ActionExecutor? = null
 
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
     // ── SHIZUKU COMPONENTS ──
 
     /** Sensitivity pipeline for mouse → touch translation */

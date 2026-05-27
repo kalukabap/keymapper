@@ -2,6 +2,7 @@ package com.example.engine
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.app.Service
 import android.graphics.Path
 import android.os.Build
 import android.util.Log
@@ -18,7 +19,7 @@ import android.util.Log
  * coordinate updates at frame rate.
  */
 class PersistentInjector(
-    private val service: AccessibilityService
+    private val service: AccessibilityService?
 ) {
     companion object {
         private const val TAG = "PersistentInjector"
@@ -146,6 +147,10 @@ class PersistentInjector(
      * Uses a zero-duration stroke at the target point.
      */
     private fun injectTouchDown(x: Float, y: Float, pointerId: Int) {
+        val svc = service ?: run {
+            Log.w(TAG, "No AccessibilityService for injection")
+            return
+        }
         try {
             val path = Path().apply { moveTo(x, y) }
             // Long duration stroke — we'll cancel it with touchUp
@@ -154,7 +159,7 @@ class PersistentInjector(
                 .addStroke(stroke)
                 .build()
 
-            service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+            svc.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
                     lastInjectionSuccess = true
                 }
@@ -175,16 +180,15 @@ class PersistentInjector(
      * For older versions, we inject a new gesture at the updated position.
      */
     private fun injectTouchMove(x: Float, y: Float, pointerId: Int): Boolean {
+        val svc = service ?: return false
         try {
-            // For now, use the same approach as down — new gesture at new position
-            // TODO: Use continueStroke for better performance on Android 11+
             val path = Path().apply { moveTo(x, y) }
             val stroke = GestureDescription.StrokeDescription(path, 0L, 100_000L)
             val gesture = GestureDescription.Builder()
                 .addStroke(stroke)
                 .build()
 
-            service.dispatchGesture(gesture, null, null)
+            svc.dispatchGesture(gesture, null, null)
             return true
         } catch (e: Throwable) {
             Log.e(TAG, "injectTouchMove failed", e)
@@ -197,6 +201,7 @@ class PersistentInjector(
      * This ends the gesture by dispatching a zero-duration tap.
      */
     private fun injectTouchUp(x: Float, y: Float, pointerId: Int) {
+        val svc = service ?: return
         try {
             val path = Path().apply { moveTo(x, y) }
             val stroke = GestureDescription.StrokeDescription(path, 0L, 1L)
@@ -204,7 +209,7 @@ class PersistentInjector(
                 .addStroke(stroke)
                 .build()
 
-            service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+            svc.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
                     Log.d(TAG, "touchUp completed for pointer $pointerId")
                 }
