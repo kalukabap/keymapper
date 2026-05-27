@@ -97,6 +97,30 @@ class RuntimeEngine(private val context: Context) {
 
     var actionExecutor: ActionExecutor? = null
 
+    // ── SHIZUKU COMPONENTS ──
+
+    /** Sensitivity pipeline for mouse → touch translation */
+    val sensitivityPipeline = SensitivityPipeline(context)
+
+    /** Raw input manager for /dev/input/ capture */
+    var rawInputManager: com.example.shizuku.RawInputManager? = null
+
+    /** Persistent injector for touch sessions */
+    var persistentInjector: PersistentInjector? = null
+
+    /** Shizuku available flag */
+    var shizukuMode = false
+        private set
+
+    // ── FRAME-BASED LOOP ──
+
+    private var frameJob: Job? = null
+    private val FRAME_INTERVAL_MS = 16L // ~60fps
+
+    // ── AIM POINTER TRACKING ──
+
+    private var aimPointerId: Int? = null
+
     // ── DEBUG ──
 
     private val _debugLog = MutableStateFlow("")
@@ -113,6 +137,7 @@ class RuntimeEngine(private val context: Context) {
      * This MUST complete before any input events are processed.
      * No DB queries happen after this — everything is in-memory.
      */
+
     suspend fun loadProfile(
         profile: GameProfile,
         mappings: List<KeyMapping>,
@@ -147,15 +172,86 @@ class RuntimeEngine(private val context: Context) {
      */
     fun unload() {
         cancelActiveMacro()
+        frameJob?.cancel()
+        frameJob = null
+        rawInputManager?.stopCapture()
+        persistentInjector?.cancelAll()
         pressedKeys.clear()
         pressedMouseButtons.clear()
         activeChordKeys.clear()
         toggleStates.clear()
+        aimPointerId = null
+        shizukuMode = false
         activeProfile = null
         mappingsSnapshot = emptyList()
         groupsSnapshot = emptyList()
         sequencesSnapshot = emptyMap()
         transitionTo(EngineState.IDLE)
+    }
+
+    // ═══════════════════════════════════════════
+    //  SHIZUKU MODE
+    // ═══════════════════════════════════════════
+
+    /**
+     * Enable Shizuku mode for raw input capture.
+     * Call after Shizuku permission is granted.
+     */
+    fun enableShizukuMode(rawManager: com.example.shizuku.RawInputManager, injector: PersistentInjector) {
+        this.rawInputManager = rawManager
+        this.persistentInjector = injector
+        this.shizukuMode = true
+
+        // Apply profile sensitivity settings
+        activeProfile?.let { profile ->
+            sensitivityPipeline.applyConfig(SensitivityPipeline.Config(
+                sensitivity = profile.mouseSensitivity,
+                smoothing = profile.mouseSmoothing,
+                deadZone = profile.mouseDeadZone,
+                invertY = profile.mouseInvertY
+            ))
+        }
+
+        // Start frame-based loop
+        startFrameLoop()
+        debug("Shizuku mode enabled")
+    }
+
+    /**
+     * Start the frame-based processing loop.
+     */
+    private fun startFrameLoop() {
+        frameJob?.cancel()
+        frameJob = scope.launch {
+            while (isActive && shizukuMode) {
+                processFrame()
+                delay(FRAME_INTERVAL_MS)
+            }
+        }
+    }
+
+    /**
+     * Process one frame: accumulate raw deltas → sensitivity pipeline → touch update.
+     */
+    private fun processFrame() {
+        if (!shizukuMode || rawInputManager == null) return
+        if (_state.value != EngineState.READY && _state.value != EngineState.AIM_MODE) return
+
+        val (rawDx, rawDy) = rawInputManager!!.consumeAccumulatedDelta()
+        if (rawDx == 0f && rawDy == 0f) return
+
+        // Process through sensitivity pipeline
+        val (newAimX, newAimY) = sensitivityPipeline.processAndUpdateAim(rawDx, rawDy)
+
+        // Update the persistent touch pointer
+        aimPointerId?.let { pid ->
+            persistentInjector?.touchMove(pid, newAimX, newAimY)
+        }
+
+        _aimDelta.value = PointF(
+            sensitivityPipeline.process(rawDx, rawDy).first,
+            sensitivityPipeline.process(rawDx, rawDy).second
+        )
     }
 
     // ═══════════════════════════════════════════
@@ -426,12 +522,24 @@ class RuntimeEngine(private val context: Context) {
     fun enterAimMode() {
         if (transitionTo(EngineState.AIM_MODE)) {
             isAimMode = true
-            debug("Entered AIM mode")
+            // In Shizuku mode, start a persistent touch pointer for aiming
+            if (shizukuMode && persistentInjector != null) {
+                val (x, y) = sensitivityPipeline.getAimPosition()
+                aimPointerId = persistentInjector?.touchDown(x, y)
+                debug("AIM mode + persistent pointer at ($x, $y)")
+            } else {
+                debug("Entered AIM mode (fallback)")
+            }
         }
     }
 
     fun exitAimMode() {
         isAimMode = false
+        // Release persistent touch pointer
+        aimPointerId?.let { pid ->
+            persistentInjector?.touchUp(pid)
+        }
+        aimPointerId = null
         _aimDelta.value = PointF(0f, 0f)
         transitionTo(EngineState.READY)
         debug("Exited AIM mode")

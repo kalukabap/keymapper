@@ -32,6 +32,8 @@ import com.example.MainActivity
 import com.example.data.KeyMapping
 import com.example.data.KeyMapperRepository
 import com.example.engine.*
+import com.example.shizuku.ShizukuHiddenApi
+import com.example.shizuku.RawInputManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -93,6 +95,9 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         gestureInjector = GestureInjector(resources, engine)
         engine.actionExecutor = gestureInjector
 
+        // Initialize Shizuku for raw input
+        initializeShizuku()
+
         _serviceState.value = true
         activeInstance = this
 
@@ -112,6 +117,32 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
         }
 
         showFloatingControl()
+    }
+
+    /**
+     * Initialize Shizuku hidden API access and raw input capture.
+     * Falls back to AccessibilityService-only mode if Shizuku is not available.
+     */
+    private fun initializeShizuku() {
+        try {
+            if (ShizukuHiddenApi.initialize(this)) {
+                Log.i(TAG, "Shizuku available — enabling raw input mode")
+
+                val rawInput = RawInputManager()
+                rawInput.enumerateDevices()
+                rawInput.startCapture()
+
+                val persistentInj = PersistentInjector(this)
+
+                engine.enableShizukuMode(rawInput, persistentInj)
+
+                Log.i(TAG, "Shizuku raw input mode active")
+            } else {
+                Log.w(TAG, "Shizuku not available — using AccessibilityService fallback")
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "Shizuku initialization failed, using fallback", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -464,6 +495,9 @@ class KeymappingService : Service(), LifecycleOwner, ViewModelStoreOwner, SavedS
 
         engine.unload()
         gestureInjector.destroy()
+        engine.rawInputManager?.destroy()
+        engine.persistentInjector?.destroy()
+        ShizukuHiddenApi.destroy()
         serviceScope.cancel()
 
         lifecycleRegistry.currentState = Lifecycle.State.DESTROYED
