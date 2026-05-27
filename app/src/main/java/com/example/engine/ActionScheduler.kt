@@ -131,7 +131,6 @@ class ActionScheduler(
                 val pid = injector.touchDown(action.startX, action.startY)
                 val steps = (action.durationMs / 16).toInt().coerceAtLeast(1)
                 for (i in 1..steps) {
-                    ensureActive()
                     val t = i.toFloat() / steps
                     injector.touchMove(pid, action.startX + (action.endX - action.startX) * t, action.startY + (action.endY - action.startY) * t)
                     delay(16)

@@ -302,10 +302,10 @@ object ShizukuHiddenApi {
         }
     }
 
-    fun isAvailable(): Boolean = shizukuAvailable
+    fun isAvailable(): Boolean = isShizukuAvailable
 
     fun injectScrollEvent(scrollAmount: Float): Boolean {
-        if (!shizukuAvailable) return false
+        if (!isShizukuAvailable) return false
         try {
             val now = android.os.SystemClock.uptimeMillis()
             val event = android.view.MotionEvent.obtain(now, now, 2 /* ACTION_SCROLL */, 0f, 0f, 0)

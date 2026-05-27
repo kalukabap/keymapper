@@ -168,7 +168,7 @@ class MacroEngine(
                         )
                         ActionSequence.ACTION_SWIPE -> {
                             val endX = (seq.xPercent + seq.dxPercent) * 1080f
-                            val endY = seq.endY ?: (seq.yPercent * 2400f)
+                            val endY = (seq.yPercent + seq.dyPercent) * 2400f
                             ActionScheduler.Action.Swipe(
                                 startX = seq.xPercent * 1080f,
                                 startY = seq.yPercent * 2400f,

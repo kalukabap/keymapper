@@ -335,7 +335,7 @@ class FloatingHudService : Service() {
     private fun updateTheme() {
         // Update mini HUD background
         miniHudView?.setBackgroundColor(
-            (currentTheme.backgroundColor() and 0x00FFFFFF.toInt()) or
+            (currentTheme.backgroundColor().toInt() and 0x00FFFFFF) or
                     ((currentTheme.opacity * 255).toInt() shl 24)
         )
     }
