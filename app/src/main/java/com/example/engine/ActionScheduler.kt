@@ -52,7 +52,6 @@ class ActionScheduler(
         currentJob = scope.launch {
             isRunning.set(true)
             for (action in actions) {
-                ensureActive()
                 executeAndWait(action)
             }
             isRunning.set(false)
@@ -87,7 +86,6 @@ class ActionScheduler(
             activeHoldPointers[id] = pointerId
             val steps = (durationMs / 16).toInt().coerceAtLeast(1)
             for (i in 1..steps) {
-                ensureActive()
                 val t = i.toFloat() / steps
                 injector.touchMove(pointerId, startX + (endX - startX) * t, startY + (endY - startY) * t)
                 delay(16)
@@ -123,7 +121,6 @@ class ActionScheduler(
             is Action.Swipe -> {
                 val pid = injector.touchDown(action.startX, action.startY)
                 for (i in 1..action.steps) {
-                    ensureActive()
                     val t = i.toFloat() / action.steps
                     injector.touchMove(pid, action.startX + (action.endX - action.startX) * t, action.startY + (action.endY - action.startY) * t)
                     delay(action.durationMs / action.steps)
@@ -143,7 +140,6 @@ class ActionScheduler(
             }
             is Action.Scroll -> {
                 for (i in 0 until action.repeatCount) {
-                    ensureActive()
                     injectScroll(action.amount)
                     if (i < action.repeatCount - 1) delay(action.repeatDelayMs)
                 }

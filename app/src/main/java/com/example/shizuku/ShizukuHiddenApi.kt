@@ -302,6 +302,25 @@ object ShizukuHiddenApi {
         }
     }
 
+    fun isAvailable(): Boolean = shizukuAvailable
+
+    fun injectScrollEvent(scrollAmount: Float): Boolean {
+        if (!shizukuAvailable) return false
+        try {
+            val now = android.os.SystemClock.uptimeMillis()
+            val event = android.view.MotionEvent.obtain(now, now, 2 /* ACTION_SCROLL */, 0f, 0f, 0)
+            // Set AXIS_VSCROLL (9) via reflection
+            val method = event.javaClass.getMethod("setAxisValue", Int::class.javaPrimitiveType, Float::class.javaPrimitiveType)
+            method.invoke(event, 9, scrollAmount)
+            injectInputEvent(event)
+            event.recycle()
+            return true
+        } catch (e: Throwable) {
+            Log.e(TAG, "Failed to inject scroll event", e)
+            return false
+        }
+    }
+
     /**
      * Cleanup resources.
      */
