@@ -1,66 +1,60 @@
 package com.example.ui.theme
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.*
-import androidx.datastore.preferences.preferencesDataStore
+import android.content.SharedPreferences
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-
-private val Context.themeDataStore: DataStore<Preferences> by preferencesDataStore(name = "hud_theme")
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Manages HUD theme persistence via DataStore.
+ * Manages HUD theme persistence via SharedPreferences.
  */
 class ThemeManager(private val context: Context) {
 
-    private object Keys {
-        val PRIMARY_COLOR = longPreferencesKey("primary_color")
-        val BACKGROUND_COLOR = longPreferencesKey("background_color")
-        val ACCENT_COLOR = longPreferencesKey("accent_color")
-        val OPACITY = floatPreferencesKey("opacity")
-        val HUD_SIZE = stringPreferencesKey("hud_size")
-    }
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("hud_theme", Context.MODE_PRIVATE)
 
-    val theme: Flow<HudTheme> = context.themeDataStore.data.map { prefs ->
-        HudTheme(
-            primaryColor = prefs[Keys.PRIMARY_COLOR] ?: HudTheme.COLOR_WHITE,
-            backgroundColor = prefs[Keys.BACKGROUND_COLOR] ?: HudTheme.COLOR_DARK,
-            accentColor = prefs[Keys.ACCENT_COLOR] ?: HudTheme.COLOR_CYAN,
-            opacity = prefs[Keys.OPACITY] ?: 0.85f,
+    private val _theme = MutableStateFlow(loadTheme())
+    val theme: Flow<HudTheme> = _theme.asStateFlow()
+
+    private fun loadTheme(): HudTheme {
+        return HudTheme(
+            primaryColor = prefs.getLong("primary_color", HudTheme.COLOR_WHITE),
+            backgroundColor = prefs.getLong("background_color", HudTheme.COLOR_DARK),
+            accentColor = prefs.getLong("accent_color", HudTheme.COLOR_CYAN),
+            opacity = prefs.getFloat("opacity", 0.85f),
             hudSize = try {
-                HudTheme.HudSize.valueOf(prefs[Keys.HUD_SIZE] ?: "MEDIUM")
+                HudTheme.HudSize.valueOf(prefs.getString("hud_size", "MEDIUM") ?: "MEDIUM")
             } catch (_: Exception) {
                 HudTheme.HudSize.MEDIUM
             }
         )
     }
 
-    suspend fun updateTheme(theme: HudTheme) {
-        context.themeDataStore.edit { prefs ->
-            prefs[Keys.PRIMARY_COLOR] = theme.primaryColor
-            prefs[Keys.BACKGROUND_COLOR] = theme.backgroundColor
-            prefs[Keys.ACCENT_COLOR] = theme.accentColor
-            prefs[Keys.OPACITY] = theme.opacity
-            prefs[Keys.HUD_SIZE] = theme.hudSize.name
-        }
+    fun updateTheme(theme: HudTheme) {
+        prefs.edit()
+            .putLong("primary_color", theme.primaryColor)
+            .putLong("background_color", theme.backgroundColor)
+            .putLong("accent_color", theme.accentColor)
+            .putFloat("opacity", theme.opacity)
+            .putString("hud_size", theme.hudSize.name)
+            .apply()
+        _theme.value = theme
     }
 
-    suspend fun setPresetColor(colorLong: Long) {
-        context.themeDataStore.edit { prefs ->
-            prefs[Keys.ACCENT_COLOR] = colorLong
-        }
+    fun setPresetColor(colorLong: Long) {
+        prefs.edit().putLong("accent_color", colorLong).apply()
+        _theme.value = _theme.value.copy(accentColor = colorLong)
     }
 
-    suspend fun setOpacity(opacity: Float) {
-        context.themeDataStore.edit { prefs ->
-            prefs[Keys.OPACITY] = opacity.coerceIn(0.5f, 1.0f)
-        }
+    fun setOpacity(opacity: Float) {
+        val clamped = opacity.coerceIn(0.5f, 1.0f)
+        prefs.edit().putFloat("opacity", clamped).apply()
+        _theme.value = _theme.value.copy(opacity = clamped)
     }
 
-    suspend fun setHudSize(size: HudTheme.HudSize) {
-        context.themeDataStore.edit { prefs ->
-            prefs[Keys.HUD_SIZE] = size.name
-        }
+    fun setHudSize(size: HudTheme.HudSize) {
+        prefs.edit().putString("hud_size", size.name).apply()
+        _theme.value = _theme.value.copy(hudSize = size)
     }
 }

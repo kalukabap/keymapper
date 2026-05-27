@@ -1,108 +1,99 @@
 package com.example.data
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.*
-import androidx.datastore.preferences.preferencesDataStore
+import android.content.SharedPreferences
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-
-private val Context.appDataStore: DataStore<Preferences> by preferencesDataStore(name = "app_settings")
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Global app settings persisted via DataStore.
+ * Global app settings persisted via SharedPreferences.
  * Per-profile settings live in Room; these are app-wide.
  */
 class AppSettings(private val context: Context) {
 
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+
     // ── HUD Position ──
-    private val hudX = floatPreferencesKey("hud_x")
-    private val hudY = floatPreferencesKey("hud_y")
-    private val hudEdgeSnap = booleanPreferencesKey("hud_edge_snap")
-
-    // ── Feature Toggles ──
-    private val showTouchPaths = booleanPreferencesKey("show_touch_paths")
-    private val touchPathColor = longPreferencesKey("touch_path_color")
-    private val mousePointerVisible = booleanPreferencesKey("mouse_pointer_visible")
-    private val mousePointerSize = intPreferencesKey("mouse_pointer_size")
-
-    // ── Mouse ──
-    private val mousePollingRate = intPreferencesKey("mouse_polling_rate") // Hz: 125, 250, 500, 0=uncapped
-    private val sensitivityHotkey = intPreferencesKey("sensitivity_hotkey") // keyCode
-    private val sensitivityHotkeyMode = stringPreferencesKey("sensitivity_hotkey_mode") // CLICK, LONG_PRESS
-
-    // ── Runtime ──
-    private val autoStartService = booleanPreferencesKey("auto_start_service")
-    private val debugLogging = booleanPreferencesKey("debug_logging")
-
-    // ── READERS ──
-
     data class HudPosition(val x: Float = 100f, val y: Float = 200f, val edgeSnap: Boolean = true)
 
-    val hudPosition: Flow<HudPosition> = context.appDataStore.data.map { prefs ->
-        HudPosition(
-            x = prefs[hudX] ?: 100f,
-            y = prefs[hudY] ?: 200f,
-            edgeSnap = prefs[hudEdgeSnap] ?: true
-        )
-    }
+    private val _hudPosition = MutableStateFlow(
+        HudPosition(prefs.getFloat("hud_x", 100f), prefs.getFloat("hud_y", 200f))
+    )
+    val hudPosition: Flow<HudPosition> = _hudPosition.asStateFlow()
 
-    val showTouchPathsFlow: Flow<Boolean> = context.appDataStore.data.map { it[showTouchPaths] ?: false }
-    val mousePointerVisibleFlow: Flow<Boolean> = context.appDataStore.data.map { it[mousePointerVisible] ?: true }
-    val mousePointerSizeFlow: Flow<Int> = context.appDataStore.data.map { it[mousePointerSize] ?: 24 }
-    val mousePollingRateFlow: Flow<Int> = context.appDataStore.data.map { it[mousePollingRate] ?: 0 }
-    val debugLoggingFlow: Flow<Boolean> = context.appDataStore.data.map { it[debugLogging] ?: false }
-    val autoStartFlow: Flow<Boolean> = context.appDataStore.data.map { it[autoStartService] ?: false }
+    private val _showTouchPaths = MutableStateFlow(prefs.getBoolean("show_touch_paths", false))
+    val showTouchPathsFlow: Flow<Boolean> = _showTouchPaths.asStateFlow()
+
+    private val _mousePointerVisible = MutableStateFlow(prefs.getBoolean("mouse_pointer_visible", true))
+    val mousePointerVisibleFlow: Flow<Boolean> = _mousePointerVisible.asStateFlow()
+
+    private val _mousePointerSize = MutableStateFlow(prefs.getInt("mouse_pointer_size", 24))
+    val mousePointerSizeFlow: Flow<Int> = _mousePointerSize.asStateFlow()
+
+    private val _mousePollingRate = MutableStateFlow(prefs.getInt("mouse_polling_rate", 0))
+    val mousePollingRateFlow: Flow<Int> = _mousePollingRate.asStateFlow()
+
+    private val _debugLogging = MutableStateFlow(prefs.getBoolean("debug_logging", false))
+    val debugLoggingFlow: Flow<Boolean> = _debugLogging.asStateFlow()
+
+    private val _autoStart = MutableStateFlow(prefs.getBoolean("auto_start_service", false))
+    val autoStartFlow: Flow<Boolean> = _autoStart.asStateFlow()
 
     // ── WRITERS ──
 
-    suspend fun saveHudPosition(x: Float, y: Float) {
-        context.appDataStore.edit { prefs ->
-            prefs[hudX] = x
-            prefs[hudY] = y
-        }
+    fun saveHudPosition(x: Float, y: Float) {
+        prefs.edit().putFloat("hud_x", x).putFloat("hud_y", y).apply()
+        _hudPosition.value = HudPosition(x, y)
     }
 
-    suspend fun setEdgeSnap(enabled: Boolean) {
-        context.appDataStore.edit { it[hudEdgeSnap] = enabled }
+    fun setEdgeSnap(enabled: Boolean) {
+        prefs.edit().putBoolean("hud_edge_snap", enabled).apply()
     }
 
-    suspend fun setShowTouchPaths(enabled: Boolean) {
-        context.appDataStore.edit { it[showTouchPaths] = enabled }
+    fun setShowTouchPaths(enabled: Boolean) {
+        prefs.edit().putBoolean("show_touch_paths", enabled).apply()
+        _showTouchPaths.value = enabled
     }
 
-    suspend fun setMousePointerVisible(visible: Boolean) {
-        context.appDataStore.edit { it[mousePointerVisible] = visible }
+    fun setMousePointerVisible(visible: Boolean) {
+        prefs.edit().putBoolean("mouse_pointer_visible", visible).apply()
+        _mousePointerVisible.value = visible
     }
 
-    suspend fun setMousePointerSize(sizeDp: Int) {
-        context.appDataStore.edit { it[mousePointerSize] = sizeDp.coerceIn(8, 64) }
+    fun setMousePointerSize(sizeDp: Int) {
+        val clamped = sizeDp.coerceIn(8, 64)
+        prefs.edit().putInt("mouse_pointer_size", clamped).apply()
+        _mousePointerSize.value = clamped
     }
 
-    suspend fun setMousePollingRate(hz: Int) {
-        // 125, 250, 500, 0=uncapped
-        context.appDataStore.edit { it[mousePollingRate] = hz }
+    fun setMousePollingRate(hz: Int) {
+        prefs.edit().putInt("mouse_polling_rate", hz).apply()
+        _mousePollingRate.value = hz
     }
 
-    suspend fun setSensitivityHotkey(keyCode: Int, mode: String) {
-        context.appDataStore.edit { prefs ->
-            prefs[sensitivityHotkey] = keyCode
-            prefs[sensitivityHotkeyMode] = mode
-        }
+    fun setSensitivityHotkey(keyCode: Int, mode: String) {
+        prefs.edit()
+            .putInt("sensitivity_hotkey", keyCode)
+            .putString("sensitivity_hotkey_mode", mode)
+            .apply()
     }
 
-    suspend fun clearSensitivityHotkey() {
-        context.appDataStore.edit { prefs ->
-            prefs.remove(sensitivityHotkey)
-            prefs.remove(sensitivityHotkeyMode)
-        }
+    fun clearSensitivityHotkey() {
+        prefs.edit()
+            .remove("sensitivity_hotkey")
+            .remove("sensitivity_hotkey_mode")
+            .apply()
     }
 
-    suspend fun setAutoStart(enabled: Boolean) {
-        context.appDataStore.edit { it[autoStartService] = enabled }
+    fun setAutoStart(enabled: Boolean) {
+        prefs.edit().putBoolean("auto_start_service", enabled).apply()
+        _autoStart.value = enabled
     }
 
-    suspend fun setDebugLogging(enabled: Boolean) {
-        context.appDataStore.edit { it[debugLogging] = enabled }
+    fun setDebugLogging(enabled: Boolean) {
+        prefs.edit().putBoolean("debug_logging", enabled).apply()
+        _debugLogging.value = enabled
     }
 }
