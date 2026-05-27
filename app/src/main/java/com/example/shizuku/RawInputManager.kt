@@ -182,7 +182,7 @@ class RawInputManager {
             var lastRelX = 0f
             var lastRelY = 0f
 
-            while (isCapturing && coroutineContext.isActive) {
+            while (isCapturing) {
                 buffer.clear()
                 val bytesRead = inputStream.read(buffer.array())
 

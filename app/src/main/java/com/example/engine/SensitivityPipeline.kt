@@ -173,7 +173,7 @@ class SensitivityPipeline(context: Context) {
         val magnitude = abs(value)
 
         // Power curve: fast movements get more acceleration
-        val accelerated = pow(magnitude, acceleration)
+        val accelerated = magnitude.pow(acceleration)
 
         return sign * accelerated
     }
