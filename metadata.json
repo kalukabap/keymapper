@@ -1,0 +1,6 @@
+{
+  "name": "KeyMapper",
+  "description": "An elegant, stable keymapping tool for configuring keyboard and mouse inputs, designing custom target zones, managing app profiles, and setting interactive macros on Android.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
