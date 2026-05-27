@@ -6,6 +6,7 @@ import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.IBinder;
+import android.os.Parcel;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Log;
@@ -20,13 +21,12 @@ import rikka.shizuku.Shizuku;
 
 /**
  * Manages connection to the remote server process.
- * Supports Shizuku (app_process) and root (libsu) launch methods.
+ * Uses Shizuku to launch app_process, then connects via ServiceManager.
  */
 public class RemoteServiceHelper {
 
     private static final String TAG = "ApexMapper-Helper";
     private static IRemoteService service = null;
-    private static ServiceConnection serviceConnection;
 
     public interface ConnectCallback {
         void onConnected(IRemoteService service);
@@ -35,13 +35,13 @@ public class RemoteServiceHelper {
 
     /**
      * Connect to the remote server.
-     * First tries to find an already-running server via ServiceManager.
-     * If not found, launches one via Shizuku.
+     * First tries existing server via ServiceManager.
+     * If not found, launches via Shizuku.
      */
     public static void connect(Context context, ConnectCallback callback) {
         // Try existing service first
         IBinder binder = ServiceManager.getService("apexmapper");
-        if (binder != null) {
+        if (binder != null && binder.pingBinder()) {
             service = IRemoteService.Stub.asInterface(binder);
             Log.i(TAG, "Connected to existing server");
             callback.onConnected(service);
@@ -54,49 +54,15 @@ public class RemoteServiceHelper {
 
     private static void launchViaShizuku(Context context, ConnectCallback callback) {
         try {
-            // Generate the launch script
             File script = generateLaunchScript(context);
+            String[] cmd = {"sh", script.getAbsolutePath()};
 
-            // Execute via Shizuku
-            // Shizuku runs: sh /path/to/script.sh
-            // This launches app_process which starts RemoteServiceShell
-            String cmd = "sh " + script.getAbsolutePath();
-
-            // Use Shizuku's newProcess to run the script
-            // This starts the server in a separate process
-            Process process = Shizuku.newProcess(
-                    new String[]{"sh", script.getAbsolutePath()}, null, null);
-
-            // Wait a moment for the server to start
-            new Thread(() -> {
-                try {
-                    Thread.sleep(2000);
-
-                    // Try to connect now
-                    IBinder binder = ServiceManager.getService("apexmapper");
-                    if (binder != null) {
-                        service = IRemoteService.Stub.asInterface(binder);
-                        Log.i(TAG, "Connected to Shizuku-launched server");
-                        callback.onConnected(service);
-                    } else {
-                        // Try a few more times
-                        for (int i = 0; i < 5; i++) {
-                            Thread.sleep(1000);
-                            binder = ServiceManager.getService("apexmapper");
-                            if (binder != null) {
-                                service = IRemoteService.Stub.asInterface(binder);
-                                Log.i(TAG, "Connected after retry " + (i + 1));
-                                callback.onConnected(service);
-                                return;
-                            }
-                        }
-                        callback.onError("Server failed to register with ServiceManager");
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to connect after launch", e);
-                    callback.onError("Connection failed: " + e.getMessage());
-                }
-            }).start();
+            // Use ShizukuRemoteProcess to launch the server
+            // Shizuku provides privileged process execution
+            Process process = new ShizukuRemoteProcess(cmd);
+            
+            // Wait for server to register
+            waitForServer(callback, 10);
 
         } catch (Exception e) {
             Log.e(TAG, "Failed to launch via Shizuku", e);
@@ -104,14 +70,37 @@ public class RemoteServiceHelper {
         }
     }
 
+    /**
+     * Wait for the server to register with ServiceManager.
+     */
+    private static void waitForServer(ConnectCallback callback, int maxRetries) {
+        new Thread(() -> {
+            for (int i = 0; i < maxRetries; i++) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    return;
+                }
+
+                IBinder binder = ServiceManager.getService("apexmapper");
+                if (binder != null && binder.pingBinder()) {
+                    service = IRemoteService.Stub.asInterface(binder);
+                    Log.i(TAG, "Server connected after " + (i + 1) + " retries");
+                    callback.onConnected(service);
+                    return;
+                }
+            }
+            callback.onError("Server failed to start after " + maxRetries + "s");
+        }).start();
+    }
+
     private static File generateLaunchScript(Context context) throws IOException {
         PackageManager pm = context.getPackageManager();
-        String packageName = context.getPackageName();
         ApplicationInfo ai;
         try {
-            ai = pm.getApplicationInfo(packageName, 0);
+            ai = pm.getApplicationInfo(context.getPackageName(), 0);
         } catch (PackageManager.NameNotFoundException e) {
-            throw new IOException("Package not found: " + packageName, e);
+            throw new IOException("Package not found", e);
         }
 
         String className = RemoteServiceShell.class.getName();
@@ -119,7 +108,7 @@ public class RemoteServiceHelper {
 
         StringBuilder sb = new StringBuilder();
         sb.append("#!/system/bin/sh\n");
-        sb.append("pkill -f ").append(className).append("\n");
+        sb.append("pkill -f ").append(className).append(" 2>/dev/null\n");
         sb.append("exec /system/bin/app_process");
         sb.append(" -Djava.library.path=\"").append(ai.nativeLibraryDir).append("\"");
         sb.append(" -Djava.class.path=\"").append(ai.publicSourceDir).append("\"");
@@ -129,9 +118,7 @@ public class RemoteServiceHelper {
         try (FileWriter fw = new FileWriter(script)) {
             fw.write(sb.toString());
         }
-
         script.setExecutable(true);
-        Log.i(TAG, "Launch script: " + script.getAbsolutePath());
         return script;
     }
 
@@ -158,5 +145,34 @@ public class RemoteServiceHelper {
             service = null;
             return false;
         }
+    }
+
+    /**
+     * Wrapper for Shizuku remote process execution.
+     * Uses reflection since Shizuku.newProcess may have access restrictions.
+     */
+    private static class ShizukuRemoteProcess extends Process {
+        private final Process delegate;
+
+        ShizukuRemoteProcess(String[] cmd) throws Exception {
+            // Try Shizuku's newProcess via reflection
+            try {
+                java.lang.reflect.Method method = Shizuku.class.getDeclaredMethod(
+                        "newProcess", String[].class, String[].class, String.class);
+                method.setAccessible(true);
+                delegate = (Process) method.invoke(null, (Object) cmd, null, null);
+            } catch (Exception e) {
+                // Fallback: use regular Runtime.exec (won't have elevated privileges)
+                Log.w(TAG, "Shizuku.newProcess failed, falling back to Runtime.exec");
+                delegate = Runtime.getRuntime().exec(cmd);
+            }
+        }
+
+        @Override public OutputStream getOutputStream() { return delegate.getOutputStream(); }
+        @Override public InputStream getInputStream() { return delegate.getInputStream(); }
+        @Override public InputStream getErrorStream() { return delegate.getErrorStream(); }
+        @Override public int waitFor() throws InterruptedException { return delegate.waitFor(); }
+        @Override public int exitValue() { return delegate.exitValue(); }
+        @Override public void destroy() { delegate.destroy(); }
     }
 }
