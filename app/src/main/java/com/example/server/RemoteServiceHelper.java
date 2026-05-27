@@ -157,17 +157,17 @@ public class RemoteServiceHelper {
         private final Process delegate;
 
         ShizukuRemoteProcess(String[] cmd) throws Exception {
-            // Try Shizuku's newProcess via reflection
+            Process p = null;
             try {
                 java.lang.reflect.Method method = Shizuku.class.getDeclaredMethod(
                         "newProcess", String[].class, String[].class, String.class);
                 method.setAccessible(true);
-                delegate = (Process) method.invoke(null, (Object) cmd, null, null);
+                p = (Process) method.invoke(null, (Object) cmd, null, null);
             } catch (Exception e) {
-                // Fallback: use regular Runtime.exec (won't have elevated privileges)
                 Log.w(TAG, "Shizuku.newProcess failed, falling back to Runtime.exec");
-                delegate = Runtime.getRuntime().exec(cmd);
+                p = Runtime.getRuntime().exec(cmd);
             }
+            delegate = p;
         }
 
         @Override public OutputStream getOutputStream() { return delegate.getOutputStream(); }
