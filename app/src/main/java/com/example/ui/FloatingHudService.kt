@@ -334,10 +334,9 @@ class FloatingHudService : Service() {
 
     private fun updateTheme() {
         // Update mini HUD background
-        miniHudView?.setBackgroundColor(
-            (currentTheme.backgroundColor().toInt() and 0x00FFFFFF) or
-                    ((currentTheme.opacity * 255).toInt() shl 24)
-        )
+        val bgColor = currentTheme.backgroundColor.toInt()
+        val alpha = ((currentTheme.opacity * 255).toInt() shl 24)
+        miniHudView?.setBackgroundColor((bgColor and 0x00FFFFFF) or alpha)
     }
 
     // ── STATUS UPDATES ──
