@@ -35,10 +35,11 @@ public class Input {
     static {
         try {
             Class<?> imClass = Class.forName("android.hardware.input.InputManager");
+            Class<?> inputEventClass = Class.forName("android.view.InputEvent");
             Method getInstance = imClass.getMethod("getInstance");
             inputManager = getInstance.invoke(null);
             injectInputEventMethod = imClass.getMethod("injectInputEvent",
-                    InputEvent.class, int.class);
+                    inputEventClass, int.class);
         } catch (Exception e) {
             Log.e(TAG, "Failed to init InputManager reflection", e);
         }
