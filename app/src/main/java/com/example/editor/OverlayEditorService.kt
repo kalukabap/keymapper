@@ -61,7 +61,7 @@ class OverlayEditorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        windowManager = getSystemService(WINDOW_SERVICE)
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         isRunning = true
         createOverlay()
         createToolbar()

@@ -138,7 +138,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             try {
                 val profile = repository.getProfile(profileId) ?: return@launch
-                val mappings = repository.getMappingsForProfileList(profileId)
+                val mappings = repository.getMappingsList(profileId)
 
                 // Get screen dimensions
                 val wm = getApplication<Application>()

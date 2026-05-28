@@ -134,7 +134,7 @@ class DraggableComponent(
 
     // ─── DRAG HANDLER ──────────────────────────────────
 
-    private inner class DragTouchListener : OnTouchListener {
+    private inner class DragTouchListener : View.OnTouchListener {
         private var initialX = 0
         private var initialY = 0
         private var initialTouchX = 0f
