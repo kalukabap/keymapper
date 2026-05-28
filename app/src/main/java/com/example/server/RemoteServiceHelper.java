@@ -1,180 +1,175 @@
-package com.example.server;
+package com.example.server
 
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.ServiceConnection;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
-import android.os.IBinder;
-import android.os.Parcel;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.util.Log;
-
-import com.example.IRemoteService;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-
-import rikka.shizuku.Shizuku;
+import android.content.ComponentName
+import android.content.Context
+import android.content.ServiceConnection
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.os.IBinder
+import android.os.ParcelFileDescriptor
+import android.util.Log
+import com.example.IRemoteService
+import rikka.shizuku.Shizuku
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileWriter
+import java.io.InputStreamReader
 
 /**
- * Manages connection to the remote server process.
+ * Manages the connection to the privileged server process.
  * Uses Shizuku to launch app_process, then connects via ServiceManager.
  */
-public class RemoteServiceHelper {
+class RemoteServiceHelper {
 
-    private static final String TAG = "ApexMapper-Helper";
-    private static IRemoteService service = null;
-
-    public interface ConnectCallback {
-        void onConnected(IRemoteService service);
-        void onError(String message);
+    interface ConnectCallback {
+        fun onConnected(service: IRemoteService)
+        fun onError(message: String)
     }
 
-    /**
-     * Connect to the remote server.
-     * First tries existing server via ServiceManager.
-     * If not found, launches via Shizuku.
-     */
-    public static void connect(Context context, ConnectCallback callback) {
-        // Try existing service first
-        IBinder binder = ServiceManager.getService("apexmapper");
-        if (binder != null && binder.pingBinder()) {
-            service = IRemoteService.Stub.asInterface(binder);
-            Log.i(TAG, "Connected to existing server");
-            callback.onConnected(service);
-            return;
+    companion object {
+        private const val TAG = "RemoteServiceHelper"
+        private const val SERVICE_NAME = "apexmapper"
+
+        private var remoteService: IRemoteService? = null
+        private var isConnecting = false
+
+        fun isConnected(): Boolean = remoteService != null
+
+        fun getService(): IRemoteService? = remoteService
+
+        /**
+         * Connect to the server. Launches via Shizuku if not already running.
+         */
+        fun connect(context: Context, callback: ConnectCallback) {
+            if (remoteService != null) {
+                callback.onConnected(remoteService!!)
+                return
+            }
+
+            if (isConnecting) {
+                callback.onError("Already connecting...")
+                return
+            }
+
+            isConnecting = true
+
+            // Try to connect to existing server first
+            try {
+                val binder = android.os.ServiceManager.getService(SERVICE_NAME)
+                if (binder != null) {
+                    val service = IRemoteService.Stub.asInterface(binder)
+                    if (service.asBinder().isBinderAlive) {
+                        remoteService = service
+                        isConnecting = false
+                        callback.onConnected(service)
+                        return
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "No existing server found, launching new one")
+            }
+
+            // Launch via Shizuku
+            launchViaShizuku(context, callback)
         }
 
-        // Launch via Shizuku
-        launchViaShizuku(context, callback);
-    }
-
-    private static void launchViaShizuku(Context context, ConnectCallback callback) {
-        try {
-            File script = generateLaunchScript(context);
-            String[] cmd = {"sh", script.getAbsolutePath()};
-
-            // Use ShizukuRemoteProcess to launch the server
-            // Shizuku provides privileged process execution
-            Process process = new ShizukuRemoteProcess(cmd);
-            
-            // Wait for server to register
-            waitForServer(callback, 10);
-
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to launch via Shizuku", e);
-            callback.onError("Shizuku launch failed: " + e.getMessage());
+        fun disconnect() {
+            remoteService = null
+            isConnecting = false
         }
-    }
 
-    /**
-     * Wait for the server to register with ServiceManager.
-     */
-    private static void waitForServer(ConnectCallback callback, int maxRetries) {
-        new Thread(() -> {
-            for (int i = 0; i < maxRetries; i++) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    return;
+        private fun launchViaShizuku(context: Context, callback: ConnectCallback) {
+            try {
+                if (!Shizuku.pingBinder()) {
+                    isConnecting = false
+                    callback.onError("Shizuku not running")
+                    return
                 }
 
-                IBinder binder = ServiceManager.getService("apexmapper");
-                if (binder != null && binder.pingBinder()) {
-                    service = IRemoteService.Stub.asInterface(binder);
-                    Log.i(TAG, "Server connected after " + (i + 1) + " retries");
-                    callback.onConnected(service);
-                    return;
-                }
+                // Generate the shell script
+                val appInfo = context.applicationInfo
+                val nativeLibPath = appInfo.nativeLibraryDir
+                val apkPath = appInfo.sourceDir
+                val className = RemoteServiceShell::class.java.name
+
+                val shellScript = """
+                    |#!/system/bin/sh
+                    |pkill -f "$className" 2>/dev/null
+                    |exec /system/bin/app_process \
+                    |    -Djava.library.path="$nativeLibPath" \
+                    |    -Djava.class.path="$apkPath" \
+                    |    / $className "$$@"
+                """.trimMargin()
+
+                // Write script to app-private location
+                val scriptFile = File(context.cacheDir, "apexmapper_server.sh")
+                FileWriter(scriptFile).use { it.write(shellScript) }
+                scriptFile.setExecutable(true)
+
+                Log.d(TAG, "Launching server: ${scriptFile.absolutePath}")
+                Log.d(TAG, "APK: $apkPath")
+                Log.d(TAG, "NativeLib: $nativeLibPath")
+
+                // Launch via Shizuku.newProcess
+                val process = Shizuku.newProcess(
+                    arrayOf("sh", scriptFile.absolutePath),
+                    null,
+                    "/"
+                )
+
+                // Read stderr in background for logging
+                Thread {
+                    try {
+                        val reader = BufferedReader(InputStreamReader(process.errorStream))
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) {
+                            Log.e(TAG, "Server stderr: $line")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error reading stderr", e)
+                    }
+                }.start()
+
+                // Wait a moment for server to start
+                Thread {
+                    try {
+                        Thread.sleep(2000)
+
+                        // Now connect via ServiceManager
+                        var attempts = 0
+                        while (attempts < 10) {
+                            try {
+                                val binder = android.os.ServiceManager.getService(SERVICE_NAME)
+                                if (binder != null) {
+                                    val service = IRemoteService.Stub.asInterface(binder)
+                                    if (service.asBinder().isBinderAlive) {
+                                        remoteService = service
+                                        isConnecting = false
+                                        Log.i(TAG, "Server connected after ${attempts + 1} attempts")
+                                        callback.onConnected(service)
+                                        return@Thread
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "Connection attempt ${attempts + 1} failed: ${e.message}")
+                            }
+                            attempts++
+                            Thread.sleep(500)
+                        }
+
+                        isConnecting = false
+                        callback.onError("Server started but couldn't connect after 10 attempts")
+                    } catch (e: Exception) {
+                        isConnecting = false
+                        callback.onError("Connection failed: ${e.message}")
+                    }
+                }.start()
+
+            } catch (e: Exception) {
+                isConnecting = false
+                Log.e(TAG, "Failed to launch via Shizuku", e)
+                callback.onError("Shizuku launch failed: ${e.message}")
             }
-            callback.onError("Server failed to start after " + maxRetries + "s");
-        }).start();
-    }
-
-    private static File generateLaunchScript(Context context) throws IOException {
-        PackageManager pm = context.getPackageManager();
-        ApplicationInfo ai;
-        try {
-            ai = pm.getApplicationInfo(context.getPackageName(), 0);
-        } catch (PackageManager.NameNotFoundException e) {
-            throw new IOException("Package not found", e);
         }
-
-        String className = RemoteServiceShell.class.getName();
-        File script = new File(context.getExternalFilesDir(null), "apexmapper_server.sh");
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("#!/system/bin/sh\n");
-        sb.append("pkill -f ").append(className).append(" 2>/dev/null\n");
-        sb.append("exec /system/bin/app_process");
-        sb.append(" -Djava.library.path=\"").append(ai.nativeLibraryDir).append("\"");
-        sb.append(" -Djava.class.path=\"").append(ai.publicSourceDir).append("\"");
-        sb.append(" / ").append(className);
-        sb.append(" \"$@\"\n");
-
-        try (FileWriter fw = new FileWriter(script)) {
-            fw.write(sb.toString());
-        }
-        script.setExecutable(true);
-        return script;
-    }
-
-    public static IRemoteService getService() {
-        return service;
-    }
-
-    public static void disconnect() {
-        if (service != null) {
-            try {
-                service.destroy();
-            } catch (RemoteException e) {
-                Log.e(TAG, "Error destroying service", e);
-            }
-            service = null;
-        }
-    }
-
-    public static boolean isConnected() {
-        if (service == null) return false;
-        try {
-            return service.isActive();
-        } catch (RemoteException e) {
-            service = null;
-            return false;
-        }
-    }
-
-    /**
-     * Wrapper for Shizuku remote process execution.
-     * Uses reflection since Shizuku.newProcess may have access restrictions.
-     */
-    private static class ShizukuRemoteProcess extends Process {
-        private final Process delegate;
-
-        ShizukuRemoteProcess(String[] cmd) throws Exception {
-            Process p = null;
-            try {
-                java.lang.reflect.Method method = Shizuku.class.getDeclaredMethod(
-                        "newProcess", String[].class, String[].class, String.class);
-                method.setAccessible(true);
-                p = (Process) method.invoke(null, (Object) cmd, null, null);
-            } catch (Exception e) {
-                Log.w(TAG, "Shizuku.newProcess failed, falling back to Runtime.exec");
-                p = Runtime.getRuntime().exec(cmd);
-            }
-            delegate = p;
-        }
-
-        @Override public OutputStream getOutputStream() { return delegate.getOutputStream(); }
-        @Override public InputStream getInputStream() { return delegate.getInputStream(); }
-        @Override public InputStream getErrorStream() { return delegate.getErrorStream(); }
-        @Override public int waitFor() throws InterruptedException { return delegate.waitFor(); }
-        @Override public int exitValue() { return delegate.exitValue(); }
-        @Override public void destroy() { delegate.destroy(); }
     }
 }
