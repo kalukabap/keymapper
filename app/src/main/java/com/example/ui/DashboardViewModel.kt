@@ -43,6 +43,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _isServerConnected = MutableStateFlow(false)
     val isServerConnected = _isServerConnected.asStateFlow()
 
+    // Alias for UI compatibility
+    val isServiceActive: StateFlow<Boolean> = _isServerConnected.asStateFlow()
+
     private val _serverStatus = MutableStateFlow("Disconnected")
     val serverStatus = _serverStatus.asStateFlow()
 
