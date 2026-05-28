@@ -124,5 +124,4 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
-  "ksp"("org.jetbrains.kotlin:kotlin-reflect:2.3.20")
 }
