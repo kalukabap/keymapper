@@ -6,10 +6,3 @@ plugins {
   alias(libs.plugins.roborazzi) apply false
   alias(libs.plugins.secrets) apply false
 }
-
-// Add kotlin-reflect to buildscript for KSP compatibility
-buildscript {
-    dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-reflect:2.2.10")
-    }
-}
