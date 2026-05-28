@@ -2,12 +2,17 @@ package com.example.ui
 
 import android.app.Application
 import android.content.Intent
+import android.util.DisplayMetrics
+import android.util.Log
+import android.view.WindowManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.IRemoteService
 import com.example.data.GameProfile
 import com.example.data.KeyMapperRepository
-import com.example.service.AccessibilityTouchService
-import com.example.service.KeymappingService
+import com.example.data.KeyMapping
+import com.example.server.KeymapConverter
+import com.example.server.RemoteServiceHelper
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -34,9 +39,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _isShizukuGranted = MutableStateFlow(false)
     val isShizukuGranted = _isShizukuGranted.asStateFlow()
 
-    private val _isServiceActive = KeymappingService.serviceState
+    // Server state
+    private val _isServerConnected = MutableStateFlow(false)
+    val isServerConnected = _isServerConnected.asStateFlow()
 
-    val isServiceActive: StateFlow<Boolean> = _isServiceActive
+    private val _serverStatus = MutableStateFlow("Disconnected")
+    val serverStatus = _serverStatus.asStateFlow()
+
+    private var remoteService: IRemoteService? = null
 
     init {
         checkPermissions()
@@ -45,17 +55,21 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun checkPermissions() {
         val context = getApplication<Application>()
-        _isAccessibilityConnected.value = AccessibilityTouchService.isServiceConnected
+        _isAccessibilityConnected.value = com.example.service.AccessibilityTouchService.isServiceConnected
         _isOverlayGranted.value = android.provider.Settings.canDrawOverlays(context)
 
         try {
             val running = rikka.shizuku.Shizuku.pingBinder()
             _isShizukuRunning.value = running
-            _isShizukuGranted.value = running && (rikka.shizuku.Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED)
+            _isShizukuGranted.value = running &&
+                (rikka.shizuku.Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED)
         } catch (e: Throwable) {
             _isShizukuRunning.value = false
             _isShizukuGranted.value = false
         }
+
+        // Check if server is already connected
+        _isServerConnected.value = RemoteServiceHelper.isConnected()
     }
 
     fun updateShizukuStatus() {
@@ -67,10 +81,84 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (rikka.shizuku.Shizuku.pingBinder()) {
                 rikka.shizuku.Shizuku.requestPermission(1001)
             }
-        } catch (e: Throwable) {
-            // no-op
+        } catch (e: Throwable) { }
+    }
+
+    // ─── SERVER CONTROL ──────────────────────────────────
+
+    /**
+     * Start the server and send the active profile's keymap.
+     */
+    fun startServer() {
+        val context = getApplication<Application>()
+        _serverStatus.value = "Connecting..."
+
+        RemoteServiceHelper.connect(context, object : RemoteServiceHelper.ConnectCallback {
+            override fun onConnected(service: IRemoteService) {
+                remoteService = service
+                _isServerConnected.value = true
+                _serverStatus.value = "Connected"
+                Log.d(TAG, "Server connected, sending keymap...")
+                sendKeymapToServer()
+            }
+
+            override fun onError(message: String) {
+                _isServerConnected.value = false
+                _serverStatus.value = "Error: $message"
+                Log.e(TAG, "Server connection failed: $message")
+            }
+        })
+    }
+
+    /**
+     * Stop the server.
+     */
+    fun stopServer() {
+        try {
+            remoteService?.stopServer()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping server", e)
+        }
+        remoteService = null
+        _isServerConnected.value = false
+        _serverStatus.value = "Stopped"
+    }
+
+    /**
+     * Send the current profile's keymap to the running server.
+     */
+    fun sendKeymapToServer() {
+        val service = remoteService ?: return
+        val profileId = _selectedProfileId.value
+        if (profileId < 0) return
+
+        viewModelScope.launch {
+            try {
+                val profile = repository.getProfile(profileId) ?: return@launch
+                val mappings = repository.getMappingsForProfileList(profileId)
+
+                // Get screen dimensions
+                val wm = getApplication<Application>()
+                    .getSystemService(WindowManager::class.java)
+                val dm = DisplayMetrics()
+                @Suppress("DEPRECATION")
+                wm.defaultDisplay.getRealMetrics(dm)
+
+                val keymapData = KeymapConverter.convert(
+                    profile, mappings, dm.widthPixels, dm.heightPixels
+                )
+
+                service.reloadKeymap(keymapData)
+                _serverStatus.value = "Active — ${mappings.size} mappings"
+                Log.d(TAG, "Keymap sent: ${mappings.size} mappings")
+            } catch (e: Exception) {
+                _serverStatus.value = "Error sending keymap: ${e.message}"
+                Log.e(TAG, "Failed to send keymap", e)
+            }
         }
     }
+
+    // ─── PROFILE MANAGEMENT ──────────────────────────────
 
     private fun seedDefaultProfileIfEmpty() {
         viewModelScope.launch {
@@ -78,10 +166,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             if (list.isEmpty()) {
                 val p1Id = repository.createProfile("Genshin Impact Mobile", "com.miHoYo.GenshinImpact")
                 repository.seedSampleMappings(p1Id.toInt())
-
                 val p2Id = repository.createProfile("PUBG Mobile Emulator Mode", "com.tencent.ig")
                 repository.seedSampleMappings(p2Id.toInt())
-
                 _selectedProfileId.value = p1Id.toInt()
             } else {
                 if (_selectedProfileId.value == -1 && list.isNotEmpty()) {
@@ -93,9 +179,9 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun selectProfile(id: Int) {
         _selectedProfileId.value = id
-        // Restart or update service with active profile mapping if running
-        if (isServiceActive.value) {
-            startMappingService(id)
+        // If server is running, reload keymap with new profile
+        if (_isServerConnected.value) {
+            sendKeymapToServer()
         }
     }
 
@@ -114,36 +200,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * Toggle server on/off. If starting, also sends the current profile.
+     */
     fun toggleServiceActivation() {
-        if (isServiceActive.value) {
-            stopMappingService()
+        if (_isServerConnected.value) {
+            stopServer()
         } else {
-            startMappingService(selectedProfileId.value)
+            startServer()
         }
     }
 
-    private fun startMappingService(profileId: Int) {
-        val context = getApplication<Application>()
-        try {
-            val intent = Intent(context, KeymappingService::class.java).apply {
-                putExtra(KeymappingService.EXTRA_PROFILE_ID, profileId)
-            }
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        } catch (e: Throwable) {
-            android.util.Log.e("DashboardViewModel", "Failed to start mapping service", e)
-        }
-    }
-
-    private fun stopMappingService() {
-        val context = getApplication<Application>()
-        try {
-            context.stopService(Intent(context, KeymappingService::class.java))
-        } catch (e: Throwable) {
-            android.util.Log.e("DashboardViewModel", "Failed to stop mapping service", e)
-        }
+    companion object {
+        private const val TAG = "DashboardVM"
     }
 }

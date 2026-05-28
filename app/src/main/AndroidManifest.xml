@@ -72,6 +72,17 @@
                 android:value="Floating HUD overlay for input mapping controls" />
         </service>
 
+        <!-- Overlay Editor Service -->
+        <service
+            android:name=".editor.OverlayEditorService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Overlay editor for placing key mapping components" />
+        </service>
+
         <!-- Feature Config Panels (floating dialog style) -->
         <activity
             android:name=".ui.panels.TouchConfigActivity"

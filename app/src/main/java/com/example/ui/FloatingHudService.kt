@@ -304,9 +304,13 @@ class FloatingHudService : Service() {
 
     private fun openKeymapPanel() {
         closePalette()
-        val intent = Intent(this, com.example.ui.panels.KeymapConfigActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
+        // Launch the overlay editor instead of a config panel
+        val intent = Intent(this, com.example.editor.OverlayEditorService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
     }
 
     private fun openSettingsPanel() {
