@@ -148,3 +148,16 @@ Java_com_example_server_RemoteService_nativeStartMouseReader(JNIEnv *env, jobjec
         pthread_detach(thread);
     }
 }
+
+JNIEXPORT jstring JNICALL
+Java_com_example_bridge_NativeInputBridge_nativeCapabilitiesSummary(JNIEnv *env, jclass clazz) {
+    (void)clazz;
+    return (*env)->NewStringUTF(env, "JNI mouse/keyboard reader · epoll loop · EV_KEY/EV_REL scan · Shizuku handoff");
+}
+
+JNIEXPORT jint JNICALL
+Java_com_example_bridge_NativeInputBridge_nativeMaxInputDevices(JNIEnv *env, jclass clazz) {
+    (void)env;
+    (void)clazz;
+    return MAX_DEVICES;
+}

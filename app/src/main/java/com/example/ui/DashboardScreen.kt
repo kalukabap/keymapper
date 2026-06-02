@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bridge.NativeInputBridge
 import com.example.data.GameProfile
 import kotlinx.coroutines.launch
 
@@ -50,6 +51,9 @@ fun DashboardScreen(
     val isShizukuRunning by viewModel.isShizukuRunning.collectAsState()
     val isShizukuGranted by viewModel.isShizukuGranted.collectAsState()
     val isServiceActive by viewModel.isServiceActive.collectAsState()
+    val nativeCapabilities = remember { NativeInputBridge.capabilitiesSummary() }
+    val nativeSlotLimit = remember { NativeInputBridge.nativeInputSlotLimit() }
+    val isNativeAvailable = remember { NativeInputBridge.isAvailable() }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var inputTextProfileName by remember { mutableStateOf("") }
@@ -93,7 +97,7 @@ fun DashboardScreen(
                 ) {
                     Column {
                         Text(
-                            text = "ApexMapper",
+                            text = "SandMapper",
                             color = Color(0xFFE6E1E5),
                             fontSize = 20.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -101,7 +105,7 @@ fun DashboardScreen(
                         )
                         Text(
                             text = "SYSTEM ARCHITECTURE: " + (android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "X86_64").uppercase(),
-                            color = Color(0xFFD0BCFF),
+                            color = Color(0xFFE5C07B),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace,
@@ -141,7 +145,7 @@ fun DashboardScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Core Status Card (Reverse-Engineered Pipeline)
+            // Core Status Card (Sand UI input pipeline)
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Card(
@@ -179,7 +183,7 @@ fun DashboardScreen(
                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                             ) {
                                 Text(
-                                    text = "SHIZUKU V3.2.1",
+                                    text = "JAVA + JNI + SHIZUKU",
                                     color = Color(0xFFE6E1E5),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
@@ -190,7 +194,7 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "Reverse-Engineered Pipeline",
+                            text = "Sand UI Input Pipeline",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFFE6E1E5)
@@ -249,14 +253,14 @@ fun DashboardScreen(
                             ) {
                                 Column {
                                     Text(
-                                        text = "BYPASS MODE",
+                                        text = "RUNTIME MODE",
                                         color = Color(0xFF938F99),
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.5.sp
                                     )
                                     Text(
-                                        text = "GPL Clean-room",
+                                        text = "Original mapper",
                                         color = Color(0xFFE6E1E5),
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.SemiBold,
@@ -284,7 +288,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isServiceActive) "Deactivate Pipeline" else "Activate Keymapper",
+                                text = if (isServiceActive) "Deactivate Pipeline" else "Activate SandMapper",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             )
@@ -292,6 +296,61 @@ fun DashboardScreen(
                     }
                 }
             }
+
+            // Sand UI capabilities card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF18140E)),
+                    border = BorderStroke(1.dp, Color(0xFF4A3820))
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "SAND UI FEATURE STACK",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE5C07B),
+                            letterSpacing = 1.2.sp
+                        )
+                        Text(
+                            text = "An original mouse/keyboard mapper experience with a game HUD, visual keymap editor, Java services, native C input discovery, and Shizuku-assisted injection.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFD6C7A8),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 14.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CapabilityPill("Touch", "Tap / hold", Modifier.weight(1f))
+                            CapabilityPill("Mouse", "Look + buttons", Modifier.weight(1f))
+                            CapabilityPill("Macro", "Timed actions", Modifier.weight(1f))
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CapabilityPill("Overlay", "Drag HUD", Modifier.weight(1f))
+                            CapabilityPill("Profiles", "Per game", Modifier.weight(1f))
+                            CapabilityPill("Native", if (isNativeAvailable) "$nativeSlotLimit slots" else "offline", Modifier.weight(1f))
+                        }
+
+                        Text(
+                            text = nativeCapabilities,
+                            color = Color(0xFFB9A57B),
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(top = 14.dp)
+                        )
+                    }
+                }
+            }
+
 
             // Requirements Checklist Card
             item {
@@ -595,7 +654,7 @@ fun DashboardScreen(
                             letterSpacing = 1.2.sp
                         )
                         Text(
-                            text = "This application incorporates reverse-engineered pointer translation principles compliant with GPL-3.0 clean-room specifications. Fully custom coordinate simulator calibrated for maximum responsive performance on physical games, emulators and standard Android runtimes.",
+                            text = "This project is an original open-source keymapper implementation. It does not copy proprietary assets or code; it provides profile management, overlays, Java/Kotlin services, native input discovery, and permission-based Android input simulation for legitimate testing and accessibility workflows.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF938F99),
                             modifier = Modifier.padding(top = 8.dp)
@@ -649,6 +708,37 @@ fun DashboardScreen(
                     Text("Cancel")
                 }
             }
+        )
+    }
+}
+
+
+@Composable
+fun CapabilityPill(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF241C10))
+            .border(1.dp, Color(0xFF4A3820), RoundedCornerShape(14.dp))
+            .padding(10.dp)
+    ) {
+        Text(
+            text = title.uppercase(),
+            color = Color(0xFFE5C07B),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.8.sp
+        )
+        Text(
+            text = subtitle,
+            color = Color(0xFFF1E3C3),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }
