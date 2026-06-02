@@ -11,6 +11,8 @@ import com.example.IRemoteService
 import com.example.data.GameProfile
 import com.example.data.KeyMapperRepository
 import com.example.data.KeyMapping
+import com.example.data.SandProfileTemplate
+import com.example.data.SandProfileTemplates
 import com.example.server.KeymapConverter
 import com.example.server.RemoteServiceHelper
 import kotlinx.coroutines.flow.*
@@ -22,6 +24,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     // Flow states
     val allProfiles: StateFlow<List<GameProfile>> = repository.allProfiles
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val profileTemplates: List<SandProfileTemplate> = SandProfileTemplates.all
 
     private val _selectedProfileId = MutableStateFlow(-1)
     val selectedProfileId = _selectedProfileId.asStateFlow()
@@ -167,11 +171,17 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val list = repository.getProfilesList()
             if (list.isEmpty()) {
-                val p1Id = repository.createProfile("Genshin Impact Mobile", "com.miHoYo.GenshinImpact")
-                repository.seedSampleMappings(p1Id.toInt())
-                val p2Id = repository.createProfile("PUBG Mobile Emulator Mode", "com.tencent.ig")
-                repository.seedSampleMappings(p2Id.toInt())
-                _selectedProfileId.value = p1Id.toInt()
+                var firstProfileId = -1
+                SandProfileTemplates.all.take(2).forEach { template ->
+                    val newId = repository.createProfile(template.title, template.packageHint).toInt()
+                    template.mappings.forEach { spec ->
+                        repository.saveMapping(spec.toKeyMapping(newId))
+                    }
+                    if (firstProfileId == -1) {
+                        firstProfileId = newId
+                    }
+                }
+                _selectedProfileId.value = firstProfileId
             } else {
                 if (_selectedProfileId.value == -1 && list.isNotEmpty()) {
                     _selectedProfileId.value = list.first().id
@@ -193,6 +203,21 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val newId = repository.createProfile(name, targetPkg)
             repository.seedSampleMappings(newId.toInt())
             _selectedProfileId.value = newId.toInt()
+        }
+    }
+
+
+    fun createProfileFromTemplate(template: SandProfileTemplate) {
+        viewModelScope.launch {
+            val newId = repository.createProfile(template.title, template.packageHint)
+            val profileId = newId.toInt()
+            template.mappings.forEach { spec ->
+                repository.saveMapping(spec.toKeyMapping(profileId))
+            }
+            _selectedProfileId.value = profileId
+            if (_isServerConnected.value) {
+                sendKeymapToServer()
+            }
         }
     }
 
