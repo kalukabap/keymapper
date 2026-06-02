@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bridge.NativeInputBridge
 import com.example.data.GameProfile
+import com.example.data.SandProfileTemplate
 import kotlinx.coroutines.launch
 
 
@@ -51,6 +52,7 @@ fun DashboardScreen(
     val isShizukuRunning by viewModel.isShizukuRunning.collectAsState()
     val isShizukuGranted by viewModel.isShizukuGranted.collectAsState()
     val isServiceActive by viewModel.isServiceActive.collectAsState()
+    val profileTemplates = remember { viewModel.profileTemplates }
     val nativeCapabilities = remember { NativeInputBridge.capabilitiesSummary() }
     val nativeSlotLimit = remember { NativeInputBridge.nativeInputSlotLimit() }
     val isNativeAvailable = remember { NativeInputBridge.isAvailable() }
@@ -347,6 +349,42 @@ fun DashboardScreen(
                             fontFamily = FontFamily.Monospace,
                             modifier = Modifier.padding(top = 14.dp)
                         )
+                    }
+                }
+            }
+
+
+            // Quick-start profile templates
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
+                    border = BorderStroke(1.dp, Color(0xFF333333))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "BUILD FROM SCRATCH TEMPLATES",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE5C07B),
+                            letterSpacing = 1.2.sp
+                        )
+                        Text(
+                            text = "Create an original editable profile with real key nodes instead of copying any commercial app UI or assets.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF938F99)
+                        )
+
+                        profileTemplates.forEach { template ->
+                            TemplateProfileRow(
+                                template = template,
+                                onCreate = { viewModel.createProfileFromTemplate(template) }
+                            )
+                        }
                     }
                 }
             }
@@ -712,6 +750,70 @@ fun DashboardScreen(
     }
 }
 
+
+
+@Composable
+fun TemplateProfileRow(
+    template: SandProfileTemplate,
+    onCreate: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF252525))
+            .border(1.dp, Color(0xFF3A3A3A), RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = template.title,
+                color = Color(0xFFE6E1E5),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = template.subtitle,
+                color = Color(0xFF938F99),
+                fontSize = 11.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Text(
+                text = "${template.mappings.size} starter bindings",
+                color = Color(0xFFE5C07B),
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        TextButton(
+            onClick = onCreate,
+            modifier = Modifier
+                .border(1.dp, Color(0xFF4A3820), RoundedCornerShape(100.dp))
+                .background(Color(0xFF241C10))
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Create template profile",
+                tint = Color(0xFFE5C07B),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Use",
+                color = Color(0xFFE5C07B),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
 
 @Composable
 fun CapabilityPill(
