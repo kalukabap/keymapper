@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">KeyMapper</string>
-    <string name="accessibility_service_desc">KeyMapper Accessibility Service intercepts hardware keyboard presses and dispatches corresponding touch simulations for configured screens.</string>
-    <string name="accessibility_service_label">KeyMapper Touch Engine</string>
+    <string name="app_name">SandMapper</string>
+    <string name="accessibility_service_desc">SandMapper Accessibility Service intercepts hardware keyboard presses and dispatches corresponding touch simulations for configured screens.</string>
+    <string name="accessibility_service_label">SandMapper Touch Engine</string>
 </resources>
